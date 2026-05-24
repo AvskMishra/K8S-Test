@@ -1,0 +1,887 @@
+
+                                                               day 1
+----------------------------------------------------------------------------------------------------------------------------------------------------
+
+---------------------
+docker  vm password
+Welcome@1234
+-------------------
+redhat 3.0
+process-->isolation
+
+namespace and cgroups are required for containerization
+
+process capabilities
+
+lxc-2008 redhat
+
+
+WSL-->
+window service linux
+-----
+win-8
+win2012
+opensource group added 
+windows kernal has added new feature
+then only windows able to run linux
+
+
+
+overlay
+file system
+-----------
+how its working for  docker
+
+
+centOS -- or  linux
+
+27/3/23]
+roadmap:
+----------
+install docker
+namspace and cgroup
+docker architecture
+
+
+
+
+from install commmand we have 
+containerd.io -->3 rd party to provide engine to start and stop
+crio.io--> alterantive
+
+overlay 2 
+-----------
+
+lab
+-----
+docker info
+
+registry  https://index.docker.io/v1
+we cant modify but we can add new images registry 
+docker HUb-->images 
+user will downlaod image from here
+
+pulp Nexus and Jfrog
+-------------------
+putting all images there based on orgaizaiton
+and then getting from there.
+ all images should be availbel on 
+ docker root--> var/snap/docker/comman/var-lib-docker
+ 
+ runtime-->
+ containerd is realtime enagine manager 
+ runtime enviornment
+ 
+ 
+ 
+ 
+ engine and containerd seperatley mange here
+systemctl status docker
+systemctl stop docker
+
+
+
+ctr ns list
+---------------
+
+by default it will pull latest image
+docker pull ubuntu:18.5  for specific version
+docker pull (company url) ubuntu
+docker  pull 121.12.121.12/kongberg/flex/ubuntu
+
+
+
+
+docker run
+docker run ubuntu
+docker ps  docker ps -a
+
+docker run ubuntu sleep 30
+
+
+
+mnt namespace
+----------------------
+ls -l
+for root ls -l \
+uname -a
+provide kernal version
+-----------------------
+shared process can provide info of existing kernal
+can be compromised.
+-----------------------
+we have to restrict 
+do not provide any root acess there while creating images.
+-----------------------
+
+
+uts namespcae 
+network namespace 
+these all namepsca are
+abstraction layeer around the process
+
+
+
+-----used to secure more----
+gviser
+kata containers
+----------------------------
+can go through 
+docker internals..
+
+
+             socket
+docker engine------->containerd (runtime, container)
+ctr can be aletrnative
+
+
+crio podman runtime engine
+----------------------
+image crated by one  can be executed on other
+---------------------
+default runtime runc(opensorce)
+allocate memory and all (runc)
+mediator library between kernal and containered
+-------------------
+
+
+
+
+
+
+docker engine(root we can update) var/lib/...
+|
+|
+kernal
+
+
+task:
+--------
+pull ngx tomcat  image
+check docker images
+docker run ngx
+
+
+ngx container 
+
+
+
+
+docker ps  ->list all running docker imags
+
+docker run -it nginx --
+
+
+
+docker exec  --> any command want to execut  inside a container 
+docker exec 301jwejqw(containerID) usname -a 
+
+
+
+
+ctrl p  q will move out from container  work only with -it option 
+in otherwise we need to use ctrl c
+
+docker run -dit nginx
+d-->detachement(default)
+
+
+if multiple images are running and if we are making new file inside that then
+runtime copy with space where you can write...  overlay(writung here)...
+
+layred archutecture  and overlay concept
+----------------------------------------
+docker  image history nginx   
+it will give info for layered ..
+
+
+
+
+docker inspect container/img
+    --->read the metdata
+	
+	create a file name mybatch-1
+	touch mybatch-1
+
+su -
+
+ 
+
+task
+----
+   tomcat test 
+work item   
+   
+s1   docker pull tomcat
+s2   docker image history
+s3  sudo docker inspect httpd 
+
+s4   docker run -dit tomcat
+s5   docker inspectv container
+s6   docker exec -it httpd /bin/sh
+
+s7 downlaod sample.war application  on tomcat folder  then will try to access it from tomcat  
+   
+sudo docker run -dit -p 192d41583429 /bin/bash
+
+2f3dcd62a99a /usr/local/apache2/htdocs
+
+
+sudo docker exec -it --p 192d41583429 /bin/bash
+ sudo docker run -dit --p 192d41583429 /bin/bash
+
+sudo docker exec -d -i -t -p 192d41583429 /bin/bash
+
+sudo docker run -d  -i -t httpd /bin/bash
+
+copy from school location to image
+	
+sudo docker  cp .57sads3333332/var/www
+
+
+
+
+docker commit
+---------------
+docker commit containerID(djsldkj32) imageName(ak/schoolapp/)
+
+
+docker images here some diffrence will be there 2-3 mb for school app)
+
+
+
+
+
+docker push
+-----------
+
+[docker hub]-->centrilized directory
+
+
+local path-->/var/lib/docker
+how to share to someone else
+--->export/import by pendrive
+--->save and load   (save it as tar file)
+------------ not a valid  or good option ---------
+
+docker hub account
+docker login and password is required
+then .cred file to be stored in our local in incryped format
+
+then docker push schoolapp
+then we need to follow sowe pattern
+  mangeshldjsa/schoolapp:1.2    
+  
+  
+  
+   
+
+
+
+https://github.com/abnavemangesh22/schoolapp.com
+
+
+
+
+dockerfile
+----  it will create docker file----
+buildpack    tools to create
+maven
+
+
+
+
+----------
+automatic execution of docker file
+vi Dockerfile
+
+
+FROM   (first statement fo dockerfile)
+want to creat a image of an springboot java file
+
+
+(.jar)--->java(must have)--->
+
+our aim is to minimum number of instruction(minimum no of layers )  instead of starting from ubuntu  we can simply start with javajdk
+FROM 
+Javajdk <--- alpine  openjdk-8u111-jre-alpine   base image should be lightweight 40.50 mb instead of 170 mb
+
+LABEL-->had info with metadata
+
+
+FROM ubuntu
+LABEL name="Mangesh"
+LABEL email="amssdsd"
+then save 
+vi Dockerfile
+
+ENV NAME akkr
+ENV PASS Password
+
+RUN apt update && apt install python3 && apt install git
+
+here 1 layes will be addde if we break into 2 lines it will add one more
+&& and || operators here reduce number of layers.
+
+
+
+
+
+
+these all commands to be non-interactive no yes no prompt(-y or -n)
+
+docker build -t mangeh-image-1 .(last dot is for autometically finding the docker file )
+
+
+dcoker image hostory   will tell about the layers..
+
+
+task:'for 27/3/23
+-----------------
+FROM
+LEBEL
+ENV
+RUN
+
+COPY
+ADD
+
+CMD
+ENTRYPOINT
+
+
+EXPOSE
+VOLUME
+ARG
+USER
+-----------------
+NEED TO CREATE A DOCKER FILE WITH USER (ABHISHEK)linux user
+
+
+docker file that creat a user alongwith password and switch it    do with non-interactive way
+
+
+FROM ubuntu
+ENV username abhishek
+ENV pass pass123(encrypted) open ssl 
+RUN ___________________
+
+---------------
+user abhishek
+---------------
+
+
+                                                                day 2
+----------------------------------------------------------------------------------------------------------------------------------------------------
+COPY
+ADD
+difference between them.
+
+CMD vs ENTRYPOINT
+
+CMD
+-->only one cmd should be there in docker file
+-->executed when we run the container not at build time
+
+
+
+EXPOSE
+--->to expose the container  to the outside world
+
+
+
+
+multistage docker file
+how to pass 1st stage work to second stage  that the challenge
+solution  --> COPY --from=build /code/target/*.jar /run/sample.jar
+
+
+bridge
+None
+host
+macvlan
+ipvlan
+overlay
+
+how to connect these two and how to do the communication(driver)
+ 
+app ---------------------> mysql   named (db) --name db   cant use ip since ip will change every run time
+container1                 container2
+how to connect these 2
+while calling or running 1st container we can pass link db 
+
+/etc/host   will have db and the name of db conatiner 
+
+
+check bridge
+
+docker network ls
+output --> bridge host none
+
+
+
+we can restrict memory use by container with docker run command -->see the documentation..
+
+
+
+
+if we have to link multiple contianer docker ... this parametr will not be the solution 
+-----------------------------------------------
+here docker-compose will be used 
+
+docker-compose   will be written in yml format
+
+--link  its depricated  alternative is docker-compose
+
+even  docker-compose is good with small size compnies 
+
+
+on large scale we have to use its alternative   clustor based solution...
+
+docker-swarm  -->mid size companies   but for large scale company again need to look for aternative
+eventhough it proveide 
+  cluster
+  high availbality
+  scalability
+  --------next 3 is not avaible directly----
+  scheduling
+  laod balancing
+  deployemnt
+  
+  
+  
+  
+other alternative is  Apache Mesos
+----------------------------------
+clustor manager using for big data... 
+|  
+| marathon framwork  need to be on top of that --> then only it can handle conatiner 
+
+
+kubernates
+---------------
+final option is kubernetes--->it will have all fucntionality avaible for all size comapny
+written in go  lang
+google (native is borg)  borg-->can run 3 million container at a time   used by google internally 
+-->CNCF (has source code of borg)  -->RANCHER is using this source code for there product ,redhat also, aks, gks ,openshift
+
+------------------------------X------------------------------
+kubespray technique
+   ansible-->config management tool
+   
+
+-------------------------   
+lab for kubernates
+-------------------------
+
+
+install a local kubernetes with MicroK8s alternative with minimum config..
+
+create two ubuntu server 
+1 will act as a master  linuxvm1
+1 will act as a worker  linuxvm2
+
+ docker should not be there on linuxvm1 and linuxvm2
+ 
+ 
+kubernates does not support docker anymore.
+containerd only needed...
+
+
+steps to setup kubernates:
+---------------------------------------------------------------------------------------
+ hostnamectl 
+
+ hostnamectl set-hostname master
+ hostnamectl set-hostname worker
+ 
+ 
+ go to vm -->networking --> add inbound port rule  ---> add one for ICMP
+ 
+
+ ping master from anywhere it should be throwing data  
+ otherwise restart yr vm 
+ 
+ need to follow https://docs.docker.com/engine/install/ubuntu/
+ create repo and gnupg and all
+ then only install  containerd.io 
+ sudo apt-get remove docker docker-engine docker.io containerd runc
+ 
+ sudo apt-get install containerd.io 
+ 
+ 
+ 
+ check  insatll
+ systemctl status containerd
+ 
+ then generate default config file
+ ---> for conatiner
+   containerd config default > /etc/containerd/config.toml
+   
+   vi /etc/conatinerd//etc/containerd/config.toml
+   line no 125  made true and save  systemdgroup false 
+   
+   **** if permission denied    use sudo su -
+
+   systemctl enable conat
+   
+   gedit /etc/containerd/config.toml
+   
+   :q
+   esc+shift+
+
+
+systemctl enable conatinerd
+systemctl stop containerd
+systemctl start containerd
+
+systemctl status containerd
+
+
+
+ diable swap ...
+ 
+way to diable
+-------------------
+addition command 
+free
+swapoff -a
+free
+
+vi /etc/fstab 
+reboot
+
+not required  for linx vm setup from azur eprotal
+---------------
+---
+
+then run https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+all 4 steps:
+
+final output is 
+kubelet was already set on hold.
+kubeadm was already set on hold.
+kubectl was already set on hold.
+
+
+
+
+on master machine
+-----------------
+ kubeadm init
+ error is expected
+[init] Using Kubernetes version: v1.26.3
+[preflight] Running pre-flight checks
+error execution phase preflight: [preflight] Some fatal errors occurred:
+        [ERROR CRI]: container runtime is not running: output: time="2023-03-28T10:56:16Z" level=fatal msg="validate service connection: CRI v1 runtime API is not implemented for endpoint \"unix:///var/run/containerd/containerd.sock\": rpc error: code = Unimplemented desc = unknown service runtime.v1.RuntimeService"
+, error: exit status 1
+        [ERROR FileContent--proc-sys-net-bridge-bridge-nf-call-iptables]: /proc/sys/net/bridge/bridge-nf-call-iptables does not exist
+        [ERROR FileContent--proc-sys-net-ipv4-ip_forward]: /proc/sys/net/ipv4/ip_forward contents are not set to 1
+[preflight] If you know what you are doing, you can make a check non-fatal with `--ignore-preflight-errors=...`
+To see the stack trace of this error execute with --v=5 or higher
+
+
+
+then afetr that  run all 4 as a solution
+
+https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+
+before putting connection on worker run these commands
+-----------------------------------------
+root@master:~# mkdir -p $Home/ .kube
+root@master:~# sudo cp -i /etc/kubernetes/admin.conf $Home/ .kube/config
+cp: target '.kube/config' is not a directory
+root@master:~# sudo cp -i /etc/kubernetes/admin.conf $Home/.kube/config
+cp: cannot create regular file '/.kube/config': No such file or directory
+root@master:~# mkdir -p $HOME/ .kube
+root@master:~# sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+root@master:~# sudo chown $(id -u):$(id -g) $HOME/ .kube/config
+root@master:~# kubectl get nodes
+------------------------------------------------
+
+kubeadm join 10.0.0.5:6443 --token jw3ske.ndfklvkj2ieg0v87 \
+        --discovery-token-ca-cert-hash sha256:e9548aa1ac87681556a203158df348b1df39e1acef5256332cbfff9731ce8db3
+
+
+kubectl get nodes
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------day 3--------------------------------------------
+
+there are two ways to create object on kubernates
+1.from cli 
+
+kubectl get nodes
+
+
+kubernates autocomplete is avaible on google work as help to run these tag
+
+create
+kubectl create -f pod.yaml
+
+kubectl run mypod --image:nginx
+kubectl get pods
+kubectl get pods -o wide
+kubectl describe pod mypod
+
+
+kubectl delete pod mypod
+-------------------
+test command
+kubectl api-resourcces
+kubectl get pods --v:8
+
+kubectl get rs, --v:8  (rs-->replica set)
+
+
+kubectl run mypod --image=nginx --dry-run=client -o yaml
+
+it will create pod.yaml on your local
+kubectl run mypod --image=nginx --dry-run=client -o yaml > pod.yaml
+
+to open it 
+cat  pod.yaml 
+
+
+
+-------------------------------------------------------------------------
+kubectl get pods -n kube-system
+kubectl run mypod --image=nginx --dry-run=client -o yaml > pod.yaml
+cat pod.yaml
+-------------------------------------------------------------------------
+
+
+
+it will egnerate 1 yamal file in yr local.
+
+
+2.from manifest files
+
+write required yaml file then run
+
+
+create
+kubectl create -f pod.yaml
+
+
+
+
+pod-config
+------------
+#nginx-pod.yaml
+apiVersion:v1
+kind:pod
+metadata:
+ name:nginx-pod
+ labels:
+   app:nginx
+   tier:dev
+spec:
+ containers:
+ -name:nginx-container
+  image:nginx
+ -name:tomcat 
+  image:tomcat 
+
+
+
+
+
+
+
+after running do ping 10.240.1.26  worker ip
+
+then kubectl exec -it nginx-pod -- /bin/sh
+
+
+with normal pod  avaibility and scaling is not there then we need to use something  called ReplicaSet
+     REPLICASET
+lebels and selectors	 
+
+
+how to check pod lebels
+
+
+kubectl create -f pod.yaml
+
+1.kubectl get pods --show-labels
+2.create pod without metadata
+3.kubectl label pod name tier=prod
+4.kubectl get pods --show label
+5.kubectl label pod ___(pod name) tier=test --overwrite
+6.kubectl label pod ____(pod name) tier
+
+
+kubectl get pods -o wide --show-labels
+
+
+kubectl describe rs name nginx-rc
+kubectl get rs
+
+
+
+HPA
+--->scaling based on cpu utilization
+horizontal pod auto scale
+kubectl scale rs nginx-rc --replicas=6 scaleup 
+kubectl scale rs nginx-rc --replicas=1 scaledown
+
+now if we want to delete:
+--------------------------
+kubectl delete rs --
+
+ kubectl  delete rs nginx-rc
+
+
+
+
+kubectl get deploy
+
+kubectl describe deploy nginx-deploy
+
+kubectl scale rs nginx-rc
+
+kubectl scale deployment nginx-deploy --replicas=2
+
+
+kubectl explain pod --recursive
+kubectl explain replicasets --recursive
+
+
+
+-------------Daemonset----------------
+
+kubectl get service 
+kubectl describe service ___(service name)
+
+kubectl get ep
+
+
+netstat -tlnp 
+
+iptables -t nat -nvL |grep 31000
+
+
+hostname -i
+
+
+load balancer service (cloud)
+--->onpremis --> metalLB
+
+
+ kubectl delete service school-app-svc
+
+
+
+Cluster IP service(service discovery)
+--------------------
+
+root@mypod1:/# cat /etc/resolv.conf
+search default.svc.cluster.local svc.cluster.local cluster.local 440magygahuuxmgc1loh4fbnka.rx.internal.cloudapp.net
+nameserver 10.96.0.10
+options ndots:5
+
+
+exit if you have to go out from pod
+
+
+work:
+----------
+cgi-app-v1
+cgi-app-v2
+cgi-app-v3
+
+
+Deployment   replica 7,8
+     Service 
+	    Nodeport
+		   Browser
+
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cgi-app-deploy
+spec:
+  replicas: 7
+  selector:
+    matchLabels:
+      app: cgi-app
+  template:
+    metadata:
+       name: cgi-app
+       labels:
+         app: cgi-app
+    spec:
+      containers:
+      -  name: cgi-app-v1
+         image: mangeshabnave/cgi-app-v1
+
+
+
+
+
+kubectl rollout history deployment cgi-app-deploy
+
+kubectl rollout history deployment cgi-app-deploy --revision 3
+
+max history 10 we can maintain  we  can increase also
+
+kubectl set image deployment cgi-app-deploy cgi-app-v1=mangeshabnave/cgi-app-v3
+ 
+kubectl rollout undo deployment  cgi-app-deploy --to-revision=2
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+blue green deploy
+--------------------
+ingrace controller
+
+
+
+
+
+volume concept
+
+mysql v1-->mysql v2
+
+with volumes it will be manged
+
+
+HELM-->package manager on top of kubernaties
+GITOPS-->
+ARGOCD
+
+
+rancher -->abstraction over kubernetes
+ --->k3S very lightweight with one gb we can run master
+ --->
+
+post exam
+
+miniqube cluater -->learing purpose 
+single node masyet
+
+
+
+https://drive.google.com/drive/folders/1rlVGM3WjjpXPQ5QnMq669fNj7EBEEzRw?usp=sharing 
+
+
+
+
+

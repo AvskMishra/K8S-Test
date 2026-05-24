@@ -1,0 +1,125 @@
+
+24/05/2026:
+---------------
+Kubernetes Tutorial for Beginners [FULL COURSE in 4 Hours]
+https://www.youtube.com/watch?v=X48VuDVv0do&t=3438s
+
+
+Kubernetes Essentials: Cheat Sheet for Beginners and Pros
+https://medium.com/@yahya.mlaouhi/kubernetes-essentials-cheat-sheet-for-beginners-and-pros-44916273d778
+
+commands cheat sheet:
+https://github.com/RehanSaeed/Kubernetes-Cheat-Sheet
+
+
+MiniKube 
+ installation https://www.youtube.com/watch?v=xNefZ51jHKg
+ MinuKube CLI for start up /deleting the cluster
+
+Kubectl
+ for configuring the MinuKube Cluster
+
+
+ to check status:
+   kubectl get nodes
+   kubectl get pod
+   kubectl get services
+
+ to create Node
+  kubectl  create -h
+   we will create deployment instead of pod since deployment is a abstraction over pod and it will add pod
+   kubectl create deployment Name --image=image [--dry-run] [options]
+    blueprint for creating pods ,needed most basic  configuration for deployment name and image to use
+
+
+
+   kubectl create deployment nginx-depl --image=nginx
+   
+   kubectl get deployment
+   kubectl get pod
+   kubectl get replicaset
+
+   deployment-->replicaset-->Pod-->container
+
+   For Editing
+   kubectl edit deployment nginx-depl
+   if we change anything here all depenedent items will be updated
+
+creating another to check logs :
+kubectl create deployment mongo-depl --image=mongo
+
+kubectl logs mongo-depl-6c557896c-7t7fm
+
+to get detailed status:
+kubectl describe pod mongo-depl-6c557896c-7t7fm
+
+to move to exec or terminal to running pod
+kubectl exec -it mongo-depl-6c557896c-7t7fm -- bin/bash
+
+
+kubectl deletion of pods:
+kubectl get pod
+kubectl delete deployment mongo-depl-6c557896c-7t7fm
+kubectl get replicaset
+
+ALL CRUD Operation will  happen on deployment level and everything follow underneath autometocally
+
+kubectl apply command :--> create and update  deployment component 
+kubectl apply -f nginx-deployment.yml
+
+
+
+YML Configurations:
+-------------------
+each yml configuration files will have 3 parts:(deployment services etc..)
+1.metadata
+2.specification
+3.Status -->automatically gernerated and added by kubernates 
+  compare between desired and actual state and make it fix by adding pods and update the state very frequently
+  etcd. will pass the cluster data and current status of any k8 components
+yaml validator plugin
+
+store the config along with actual code or create a separate repo for configuarations
+
+
+inside yml file
+  Template:
+   has it own metadata and spec section
+   applies to pod
+   blueprint for a pod
+
+Connection: 1:09:00 timestamp of you tube video
+-----------------------------------------
+with label and selectors:
+   -any key value pair for component
+ 
+in the service targetPort should have to match with port mentioned in pod 
+  service
+    ports:
+     - protocol:TCP
+       port:80  //service port how to connect to service from outside
+       targetPort:8080 //port of the pod on which it will redirect
+
+ deployment: 
+    |
+    template:
+     metadata:
+     spec
+      containers:
+      - name:nginx
+        image:nginx:1.16
+        ports:
+         -contianerPort:8080 //here is the port which will be refered from service
+   
+kubectl get pod -o wide  //more information of pod	
+
+Example hands-on
+Goal: Deploy two pods in a Kubernetes cluster — MongoDB and Mongo Express — and connect them so the browser can access the Mongo Express UI which talks to MongoDB internally.
+solution there in repo or local folder
+
+
+
+
+ 
+
+
