@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-api
+  labels:
+    app: my-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-api
+  template:
+    metadata:
+      labels:
+        app: my-api
+    spec:
+      containers:
+        - name: my-api
+          image: nginx:1.25
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: html
+          configMap:
+            name: my-api-html
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-api-html
+data:
+  index.html: |
+    <html>
+      <body style="font-family:sans-serif; text-align:center; padding:60px; background:#e3f2fd;">
+        <h1>my-api is alive!</h1>
+        <p>You reached this via <strong>Ingress path: /api</strong></p>
+        <p>Same Ingress controller, different backend service.</p>
+      </body>
+    </html>

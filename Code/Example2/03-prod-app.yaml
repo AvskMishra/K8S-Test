@@ -1,0 +1,61 @@
+# ============================================================
+# APP IN "prod" NAMESPACE
+# ============================================================
+# Same app name "webapp" — but lives in "prod" namespace.
+# Completely isolated from dev/webapp.
+#
+# Has:
+#   - 3 replicas (high availability)
+#   - larger resource limits
+#   - LoadBalancer service (external access)
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp              # same name as dev — no conflict because namespace differs
+  namespace: prod           # <-- lives in prod namespace
+  labels:
+    app: webapp
+    env: prod
+spec:
+  replicas: 3               # prod needs 3 replicas for HA
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+        env: prod
+    spec:
+      containers:
+        - name: webapp
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: 128Mi
+            limits:
+              cpu: "250m"
+              memory: 256Mi
+          env:
+            - name: APP_ENV
+              value: "production"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service
+  namespace: prod           # scoped to prod namespace
+spec:
+  selector:
+    app: webapp
+  ports:
+    - port: 80
+      targetPort: 80
+  type: LoadBalancer        # external access for production

@@ -1,0 +1,39 @@
+# ============================================================
+# NAMESPACES — logical clusters within a cluster
+# ============================================================
+# Default namespaces K8s ships with:
+#   default      → where resources go if you don't specify a namespace
+#   kube-system  → K8s internal components (scheduler, coredns, etc.)
+#   kube-public  → readable by everyone, used for cluster info
+#   kube-node-lease → heartbeat objects for node health
+#
+# We create 3 custom namespaces below:
+#   dev         → development environment
+#   prod        → production environment
+#   monitoring  → shared observability tools (used by both dev & prod)
+# ============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+  labels:
+    env: development
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod
+  labels:
+    env: production
+
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    purpose: observability

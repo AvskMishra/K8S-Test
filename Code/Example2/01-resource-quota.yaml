@@ -1,0 +1,40 @@
+# ============================================================
+# RESOURCE QUOTA — limits total resources a namespace can use
+# ============================================================
+# KEY CONCEPT: Namespaces provide isolation BUT by default
+# one namespace can starve others by hogging CPU/memory.
+# ResourceQuota prevents that.
+#
+# Each namespace below gets its own quota — prod gets more
+# resources than dev because production needs more headroom.
+# ============================================================
+
+# --- DEV namespace quota (small — devs don't need much) ---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-quota
+  namespace: dev          # <-- scoped to "dev" namespace only
+spec:
+  hard:
+    pods: "5"             # max 5 pods in dev
+    requests.cpu: "500m"  # total CPU requests across all pods
+    requests.memory: 512Mi
+    limits.cpu: "1"
+    limits.memory: 1Gi
+
+---
+
+# --- PROD namespace quota (larger — production workloads) ---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: prod-quota
+  namespace: prod          # <-- scoped to "prod" namespace only
+spec:
+  hard:
+    pods: "20"
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi

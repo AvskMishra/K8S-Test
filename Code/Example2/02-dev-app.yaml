@@ -1,0 +1,61 @@
+# ============================================================
+# APP IN "dev" NAMESPACE
+# ============================================================
+# Same app as prod (nginx) but:
+#   - 1 replica (prod has 3)
+#   - smaller resource limits
+#   - ClusterIP service (internal only — devs access via port-forward)
+#
+# KEY CONCEPT: Same app name ("webapp") exists in both dev and
+# prod namespaces. They are completely isolated — no collision.
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp              # same name as prod — no conflict!
+  namespace: dev            # <-- this is what separates them
+  labels:
+    app: webapp
+    env: dev
+spec:
+  replicas: 1               # dev needs only 1 replica
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+        env: dev
+    spec:
+      containers:
+        - name: webapp
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "50m"
+              memory: 64Mi
+            limits:
+              cpu: "100m"
+              memory: 128Mi
+          env:
+            - name: APP_ENV
+              value: "development"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service
+  namespace: dev            # scoped to dev namespace
+spec:
+  selector:
+    app: webapp
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP           # internal only — no external access

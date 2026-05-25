@@ -1,0 +1,70 @@
+# ============================================================
+# SHARED SERVICE IN "monitoring" NAMESPACE
+# ============================================================
+# KEY CONCEPT: Cross-namespace communication
+#
+# Services are namespace-scoped. To reach a service in another
+# namespace, use the full DNS name:
+#
+#   <service-name>.<namespace>.svc.cluster.local
+#
+# Example: dev/webapp can reach this monitoring service via:
+#   http://metrics-service.monitoring.svc.cluster.local:9090
+#
+# Within same namespace you can use just: http://metrics-service:9090
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-collector
+  namespace: monitoring     # shared monitoring namespace
+  labels:
+    app: metrics-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metrics-collector
+  template:
+    metadata:
+      labels:
+        app: metrics-collector
+    spec:
+      containers:
+        - name: metrics
+          image: prom/prometheus:v2.45.0
+          ports:
+            - containerPort: 9090
+          resources:
+            requests:
+              cpu: "100m"
+              memory: 256Mi
+            limits:
+              cpu: "500m"
+              memory: 512Mi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics-service
+  namespace: monitoring
+spec:
+  selector:
+    app: metrics-collector
+  ports:
+    - port: 9090
+      targetPort: 9090
+  type: ClusterIP
+
+# ============================================================
+# HOW dev/prod APPS ACCESS THIS:
+#
+# From inside dev namespace:
+#   http://metrics-service.monitoring.svc.cluster.local:9090
+#
+# From inside monitoring namespace (same namespace shortcut):
+#   http://metrics-service:9090
+# ============================================================

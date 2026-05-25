@@ -119,7 +119,42 @@ solution there in repo or local folder
 
 
 
+DELETE COMMANDS:
+-------------------------
+kubectl get pods
 
- 
+kubectl get deployment
+kubectl delete deployment mongodb-deployment
+kubectl delete deployment mongoexpress-deployment
+
+kubectl get services
+kubectl delete services mongodb-service
+kubectl delete services mongoexpress-service
+
+
+kubectl namespace: cluster inside a cluster
+----------------
+kube-system
+kube-public
+kube-node-lease
+default
+
+custom --> 
+kubectl create namespace my-namespace
+we can go with a file also and then apply the changes
+
+list all
+kubectl get namespace
+
+we can group various resources based on their anture
+database namespace
+minitoring namespace
+elasticsearch namespace 
+nginx-ingress namespace
+
+officially we should not use name spaces for smaller projects upto 10 usrs
+but always helps to categories into namespace 
+logging monitoring etc
+
 
 

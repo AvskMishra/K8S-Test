@@ -2,6 +2,73 @@
 
 ---
 
+## Prerequisites — Software Required (Windows)
+
+### 1. Container Runtime / K8s Driver (pick one)
+
+| Option | Notes |
+|--------|-------|
+| **Docker Desktop** | Most common. Enable at startup. Minikube uses it as driver. [Download](https://www.docker.com/products/docker-desktop/) |
+| **Rancher Desktop** | Free alternative to Docker Desktop. Ships kubectl + Minikube-compatible. [Download](https://rancherdesktop.io/) |
+| **Podman Desktop** | OCI-compatible. Works with Minikube via podman driver. [Download](https://podman-desktop.io/) |
+
+### 2. Minikube (local Kubernetes cluster)
+
+Runs single-node K8s cluster on your machine.
+
+| Install method | Command |
+|----------------|---------|
+| Chocolatey | `choco install minikube` |
+| Winget | `winget install Kubernetes.minikube` |
+| Manual | [minikube.sigs.k8s.io/docs/start](https://minikube.sigs.k8s.io/docs/start/) |
+
+```powershell
+minikube start --driver=docker   # or --driver=rancher-desktop / podman
+minikube status                  # verify
+```
+
+**Common start options:**
+```powershell
+minikube start                                          # auto-detect driver
+minikube start --driver=docker                          # explicit Docker driver
+minikube start --driver=docker --cpus=4 --memory=4096  # custom resources
+
+minikube stop      # pause cluster, keep state
+minikube delete    # wipe cluster completely
+```
+
+> **Rancher Desktop users:** Skip Minikube — Rancher ships its own K8s cluster built-in.
+
+### 3. kubectl (Kubernetes CLI)
+
+Standalone binary to control the cluster.
+
+| Install method | Command |
+|----------------|---------|
+| Chocolatey | `choco install kubernetes-cli` |
+| Winget | `winget install -e --id Kubernetes.kubectl` |
+| Docker Desktop | Enable via `Settings → Kubernetes → Enable Kubernetes` |
+| Rancher Desktop | Bundled — no separate install needed |
+| Manual | Download `kubectl.exe` from [dl.k8s.io](https://dl.k8s.io/release/v1.30.0/bin/windows/amd64/kubectl.exe) → add to PATH |
+
+```powershell
+kubectl version --client   # verify
+```
+
+### Recommended Stack (Windows)
+
+```
+Docker Desktop  →  Minikube (--driver=docker)  →  kubectl (standalone)
+```
+
+or
+
+```
+Rancher Desktop  →  built-in K8s + kubectl  (no Minikube needed)
+```
+
+---
+
 ## Problem Statement
 
 **Goal:** Deploy two pods in a Kubernetes cluster — MongoDB and Mongo Express — and connect them so the browser can access the Mongo Express UI which talks to MongoDB internally.
