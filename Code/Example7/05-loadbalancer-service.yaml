@@ -1,0 +1,95 @@
+# =============================================================================
+# SERVICE TYPE: LoadBalancer
+# =============================================================================
+#
+# WHAT IT IS:
+#   Provisions an EXTERNAL load balancer via the cloud provider (AWS ELB,
+#   GCP GLB, Azure LB). The LB gets a public IP and forwards traffic to nodes,
+#   then kube-proxy routes to pods. Superset of NodePort + ClusterIP.
+#
+# HOW IT WORKS:
+#   1. You create a Service type: LoadBalancer.
+#   2. Kubernetes calls the cloud provider API (via cloud-controller-manager).
+#   3. Cloud provisions a real load balancer with a public IP / hostname.
+#   4. That LB forwards to all nodes on an auto-assigned NodePort.
+#   5. kube-proxy on each node routes to the correct pods.
+#
+#   External Client
+#        │
+#        ▼
+#   Cloud LB (public IP: 34.123.45.67:80)
+#        │  (health-checks nodes, routes to healthy ones)
+#        ▼
+#   Node1:32456 | Node2:32456 | Node3:32456   ← auto NodePort behind scenes
+#        │
+#        ▼  kube-proxy iptables
+#   pod-1 | pod-2 | pod-3
+#
+# WHEN TO USE:
+#   - Production workloads on cloud (GKE, EKS, AKS).
+#   - Any service that needs a stable public IP/hostname for end users.
+#   - TCP/UDP workloads (non-HTTP) that can't use Ingress.
+#
+# WHEN NOT TO USE:
+#   - Bare metal / on-premise (no cloud LB provider) → use MetalLB or NodePort.
+#   - HTTP/HTTPS apps with host-based routing → use Ingress (one LB for all).
+#   - Each LoadBalancer costs money — avoid creating one per microservice.
+#   - Internal services → use ClusterIP.
+#
+# vs NodePort:
+#   NodePort:      YOU manage the node IPs. No HA. Cheap/free.
+#   LoadBalancer:  Cloud manages HA LB. Stable public IP. Costs money.
+#
+# vs Ingress:
+#   LoadBalancer:  L4 (TCP/UDP). One LB per Service. No URL routing.
+#   Ingress:       L7 (HTTP/S). One LB for MANY Services. Host/path routing.
+#
+# ANNOTATIONS:
+#   Cloud providers expose extra config via annotations (see below).
+#   These are AWS ELB examples — GCP/Azure have different annotation keys.
+#
+# =============================================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-lb
+  namespace: default
+  labels:
+    app: web-app
+  annotations:
+    # --- AWS ELB annotations (remove/replace for GCP or Azure) ---
+
+    # Use Network Load Balancer (NLB) instead of Classic ELB
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+
+    # Keep client source IP visible to pods (NLB only)
+    service.beta.kubernetes.io/aws-load-balancer-preserve-client-ip: "true"
+
+    # Make LB internal (no public IP) — for internal services
+    # service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+
+    # SSL termination at LB level
+    # service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:..."
+    # service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+spec:
+  type: LoadBalancer
+  selector:
+    app: web-app              # Routes to pods with this label
+  ports:
+    - name: http
+      port: 80                # Port on the cloud LB (external)
+      targetPort: 80          # Port on the container
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+
+# After apply, check EXTERNAL-IP (takes ~1-2 min on cloud):
+#   kubectl get svc web-app-lb
+#   NAME          TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)
+#   web-app-lb    LoadBalancer   10.96.12.34    34.123.45.67     80:32xxx/TCP
+#
+# Access:
+#   http://34.123.45.67

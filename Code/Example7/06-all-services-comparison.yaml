@@ -1,0 +1,76 @@
+# =============================================================================
+# SIDE-BY-SIDE: All 4 Service Types on the SAME app
+# Deploy this to see all types working together.
+# =============================================================================
+#
+# Architecture:
+#
+#   Internet
+#      │
+#      ├──► Cloud LB (LoadBalancer svc) ──► web-app pods
+#      │
+#      ├──► NodeIP:30080 (NodePort svc)  ──► web-app pods
+#      │
+#   Inside cluster only:
+#      ├──► ClusterIP svc  ──► web-app pods  (internal apps)
+#      │
+#      └──► Headless svc   ──► pod IPs direct (StatefulSet / peer discovery)
+#
+# =============================================================================
+
+# 1) ClusterIP — internal only, stable virtual IP, load-balanced by kube-proxy
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-clusterip
+  namespace: default
+spec:
+  type: ClusterIP             # Default. Other pods reach app at this VIP.
+  selector:
+    app: web-app
+  ports:
+    - port: 80
+      targetPort: 80
+---
+# 2) Headless — no VIP. DNS returns pod IPs directly. Client does routing.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-headless
+  namespace: default
+spec:
+  clusterIP: None             # No virtual IP. CoreDNS returns all pod IPs.
+  selector:
+    app: web-app
+  ports:
+    - port: 80
+      targetPort: 80
+---
+# 3) NodePort — opens port on every node. External access without cloud LB.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-nodeport
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: web-app
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080          # Access: http://<node-ip>:30080
+---
+# 4) LoadBalancer — cloud provisions external LB with public IP automatically.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-lb
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: web-app
+  ports:
+    - port: 80
+      targetPort: 80

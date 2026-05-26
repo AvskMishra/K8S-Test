@@ -1,0 +1,101 @@
+# =============================================================================
+# SERVICE TYPE: Headless  (ClusterIP set to None)
+# =============================================================================
+#
+# WHAT IT IS:
+#   A Service with clusterIP: None — Kubernetes assigns NO virtual IP.
+#   DNS query returns the individual pod IPs directly, not a VIP.
+#
+# HOW IT WORKS (the DNS difference):
+#   Normal ClusterIP:
+#     nslookup backend-api.default.svc.cluster.local
+#     → 10.96.45.12  (single VIP, kube-proxy load-balances)
+#
+#   Headless:
+#     nslookup db.default.svc.cluster.local
+#     → 10.244.1.5   (pod-0 IP)
+#     → 10.244.2.7   (pod-1 IP)
+#     → 10.244.3.2   (pod-2 IP)
+#     Client picks which IP to use — no kube-proxy in the path.
+#
+#   For StatefulSets, EACH pod also gets a stable individual DNS entry:
+#     db-0.db.default.svc.cluster.local → 10.244.1.5  (always pod-0)
+#     db-1.db.default.svc.cluster.local → 10.244.2.7  (always pod-1)
+#     db-2.db.default.svc.cluster.local → 10.244.3.2  (always pod-2)
+#
+# WHEN TO USE:
+#   - StatefulSets: databases (MySQL, Cassandra, Kafka) where each pod
+#     has a different role (master vs replica) and callers need to target
+#     a SPECIFIC pod by name.
+#   - Service discovery where the client wants ALL pod IPs (e.g. gRPC
+#     client-side load balancing, Cassandra driver peer discovery).
+#   - Peer-to-peer clustering where pods must know each other's addresses.
+#
+# WHEN NOT TO USE:
+#   - Stateless apps where you want transparent load balancing → use ClusterIP.
+#   - External access → use NodePort/LoadBalancer.
+#
+# KEY DIFFERENCE vs ClusterIP:
+#   ClusterIP   → kube-proxy does load balancing, client sees one IP.
+#   Headless    → DNS returns all pod IPs, client or app does load balancing.
+#
+# TRAFFIC FLOW:
+#   Client DNS lookup → CoreDNS returns list of pod IPs
+#   Client connects directly to specific pod IP (no kube-proxy iptables rule)
+#
+# =============================================================================
+
+# StatefulSet needs this headless service as its "governing service"
+apiVersion: v1
+kind: Service
+metadata:
+  name: db                   # StatefulSet references this name in serviceName:
+  namespace: default
+  labels:
+    app: db
+spec:
+  clusterIP: None            # ← This is what makes it Headless
+  selector:
+    app: db
+  ports:
+    - name: db-port
+      port: 5432
+      targetPort: 5432
+---
+# StatefulSet that uses the headless service above
+# Each pod gets stable DNS: db-0.db, db-1.db, db-2.db
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: default
+spec:
+  serviceName: db            # Must match the headless service name above
+  replicas: 3
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              value: "changeme"   # Use a Secret in production
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

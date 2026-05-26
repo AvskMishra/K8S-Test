@@ -1,0 +1,47 @@
+# =============================================================================
+# SERVICE TYPE: ClusterIP  (DEFAULT type — no need to set type: ClusterIP)
+# =============================================================================
+#
+# WHAT IT IS:
+#   Virtual IP address that exists only INSIDE the cluster.
+#   kube-proxy routes traffic from that VIP to one of the matching pods.
+#   Pods outside the cluster (or the internet) CANNOT reach this IP.
+#
+# HOW IT WORKS:
+#   1. You create a Service with a selector (e.g. app: backend-api).
+#   2. Kubernetes assigns a stable ClusterIP (e.g. 10.96.45.12).
+#   3. kube-proxy watches Endpoints — the live set of pod IPs matching selector.
+#   4. Any request to 10.96.45.12:8080 is load-balanced across those pods.
+#   5. DNS name auto-created: backend-api.default.svc.cluster.local → ClusterIP.
+#
+# WHEN TO USE:
+#   - Internal microservice-to-microservice communication (DB, cache, API).
+#   - Any service that must NOT be exposed outside the cluster.
+#   - Front a Deployment with stable DNS so pods can die/restart freely.
+#
+# WHEN NOT TO USE:
+#   - You need external users to reach the service → use NodePort/LoadBalancer.
+#   - You need per-pod addressing (e.g. StatefulSet) → use Headless.
+#
+# TRAFFIC FLOW:
+#   Pod A  →  ClusterIP (10.96.x.x:8080)  →  [kube-proxy iptables/ipvs]
+#          →  pod-1 | pod-2 | pod-3  (round-robin)
+#
+# =============================================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api          # DNS: backend-api.default.svc.cluster.local
+  namespace: default
+  labels:
+    app: backend-api
+spec:
+  type: ClusterIP             # Default. Can omit this line — same result.
+  selector:
+    app: backend-api          # Routes to pods with this label
+  ports:
+    - name: http
+      port: 8080              # Port OTHER pods use to reach this service
+      targetPort: 8080        # Port the container is actually listening on
+      protocol: TCP
