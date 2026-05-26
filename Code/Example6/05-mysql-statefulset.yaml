@@ -1,0 +1,154 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  # MUST reference the headless service defined in 04-mysql-headless-service.yaml
+  serviceName: "mysql"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      initContainers:
+        # Init container runs BEFORE main container
+        # Reads pod ordinal from hostname → sets master/replica config
+        - name: init-mysql
+          image: mysql:8.0
+          command: ["/bin/bash", "/mnt/config-map/init.sh"]
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/mysql/conf.d
+            - name: config-map
+              mountPath: /mnt/config-map
+
+        # Clone data from previous pod before starting
+        # mysql-1 clones from mysql-0, mysql-2 clones from mysql-1
+        - name: clone-mysql
+          image: gcr.io/google-samples/xtrabackup:1.0
+          command:
+            - bash
+            - "-c"
+            - |
+              ORDINAL=$(hostname | awk -F'-' '{print $NF}')
+              # Ordinal 0 is master — nothing to clone
+              [[ $ORDINAL -eq 0 ]] && exit 0
+              DONOR_HOST="mysql-$((ORDINAL-1)).mysql"
+              echo "Cloning from $DONOR_HOST"
+              ncat --recv-only $DONOR_HOST 3307 | xbstream -x -C /var/lib/mysql
+              xtrabackup --prepare --target-dir=/var/lib/mysql
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+              subPath: mysql
+            - name: conf
+              mountPath: /etc/mysql/conf.d
+
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-root-password
+          ports:
+            - name: mysql
+              containerPort: 3306
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+              subPath: mysql
+            - name: conf
+              mountPath: /etc/mysql/conf.d
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+          # Liveness: is mysql process alive?
+          livenessProbe:
+            exec:
+              command: ["mysqladmin", "ping"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          # Readiness: can mysql accept connections?
+          readinessProbe:
+            exec:
+              command:
+                - mysql
+                - -h
+                - 127.0.0.1
+                - -e
+                - "SELECT 1"
+            initialDelaySeconds: 5
+            periodSeconds: 2
+
+        # Sidecar: streams backup data to next pod during cloning
+        - name: xtrabackup
+          image: gcr.io/google-samples/xtrabackup:1.0
+          ports:
+            - name: xtrabackup
+              containerPort: 3307
+          command:
+            - bash
+            - "-c"
+            - |
+              cd /var/lib/mysql
+              if [[ -f xtrabackup_slave_info && "x$(<xtrabackup_slave_info)" != "x" ]]; then
+                sed -e 's/;$//;s/$/;/' xtrabackup_slave_info > change_master_to.sql.in
+                rm -f xtrabackup_slave_info xtrabackup_binlog_info
+              elif [[ -f xtrabackup_binlog_info ]]; then
+                [[ $(cat xtrabackup_binlog_info) =~ ^(.*?)[[:space:]]+(.*?)$ ]] || exit 1
+                rm xtrabackup_binlog_info
+                echo "CHANGE MASTER TO MASTER_LOG_FILE='${BASH_REMATCH[1]}', MASTER_LOG_POS=${BASH_REMATCH[2]};" > change_master_to.sql.in
+              fi
+              if [[ -f change_master_to.sql.in ]]; then
+                echo "Waiting for mysqld to be ready"
+                until mysql -h 127.0.0.1 -e "SELECT 1"; do sleep 1; done
+                echo "Initializing replication from clone position"
+                mysql -h 127.0.0.1 \
+                  -e "$(<change_master_to.sql.in), \
+                      MASTER_HOST='mysql-0.mysql', \
+                      MASTER_USER='root', \
+                      MASTER_PASSWORD='$MYSQL_ROOT_PASSWORD', \
+                      MASTER_CONNECT_RETRY=10; \
+                    START SLAVE;" || exit 1
+                mv change_master_to.sql.in change_master_to.sql.orig
+              fi
+              exec ncat --listen --keep-open --send-only --max-conns=1 3307 -c "xtrabackup --backup --slave-info --stream=xbstream --host=127.0.0.1 --user=root --password=$MYSQL_ROOT_PASSWORD"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+              subPath: mysql
+            - name: conf
+              mountPath: /etc/mysql/conf.d
+
+      volumes:
+        - name: conf
+          emptyDir: {}
+        - name: config-map
+          configMap:
+            name: mysql-init-config
+
+  # volumeClaimTemplates: StatefulSet creates ONE PVC per pod
+  # mysql-0 → data-mysql-0
+  # mysql-1 → data-mysql-1
+  # mysql-2 → data-mysql-2
+  # These PVCs survive pod deletion — data persists across reschedule
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "standard"
+        resources:
+          requests:
+            storage: 10Gi

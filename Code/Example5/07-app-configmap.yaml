@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: default
+data:
+  # Non-sensitive app settings shared across multiple pods
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "appdb"
+  UPLOAD_DIR: "/data/uploads"        # Must match volumeMount path in pod
+  MAX_UPLOAD_SIZE: "100MB"
+  CACHE_TTL: "3600"
+
+  # Multi-line config file mounted as a file inside pod
+  app.properties: |
+    server.port=8080
+    server.timeout=30s
+    storage.backend=filesystem
+    storage.path=/data/uploads

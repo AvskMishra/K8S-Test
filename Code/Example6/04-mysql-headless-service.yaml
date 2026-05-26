@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql           # StatefulSet uses this name for stable DNS
+  labels:
+    app: mysql
+spec:
+  # clusterIP: None  →  Headless service
+  # No load balancing. Each pod gets its own DNS entry:
+  #   mysql-0.mysql.default.svc.cluster.local
+  #   mysql-1.mysql.default.svc.cluster.local
+  #   mysql-2.mysql.default.svc.cluster.local
+  clusterIP: None
+  selector:
+    app: mysql
+  ports:
+    - name: mysql
+      port: 3306
+---
+# Read service — routes client queries to any replica (mysql-1, mysql-2)
+# Dotnet app sends READ queries here, WRITE queries to mysql-0.mysql directly
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-read
+spec:
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+  type: ClusterIP

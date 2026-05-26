@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-config
+data:
+  # This script runs on pod startup to determine role: master or replica
+  init.sh: |
+    #!/bin/bash
+    # Pod ordinal index extracted from hostname (mysql-0, mysql-1, mysql-2 ...)
+    ORDINAL=$(hostname | awk -F'-' '{print $NF}')
+
+    if [[ $ORDINAL -eq 0 ]]; then
+      echo "Starting as MASTER (mysql-0)"
+      # Master: enable binary logging for replication
+      cat > /etc/mysql/conf.d/master.cnf <<EOF
+    [mysqld]
+    log-bin
+    server-id=1
+    EOF
+    else
+      echo "Starting as REPLICA (mysql-$ORDINAL)"
+      # Replica: read-only, connect to master via stable DNS
+      cat > /etc/mysql/conf.d/replica.cnf <<EOF
+    [mysqld]
+    super-read-only
+    server-id=$((ORDINAL + 1))
+    EOF
+    fi
+
+  # Master DNS: mysql-0.mysql (headless service gives stable DNS per pod)
+  mysql-master-host: "mysql-0.mysql"
+  mysql-database: "appdb"

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc
+  namespace: default
+spec:
+  storageClassName: manual-nfs
+  accessModes:
+    - ReadWriteMany       # Matches NFS PV access mode
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      type: nfs

@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deployment
+  namespace: default
+spec:
+  replicas: 3                         # 3 pods, all share same ConfigMap/Secret
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: myapp
+          image: nginx:1.25
+          ports:
+            - containerPort: 8080
+
+          # --- ConfigMap as environment variables ---
+          envFrom:
+            - configMapRef:
+                name: app-config      # All keys become env vars
+
+          # --- Secret as environment variables ---
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_PASSWORD
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_USER
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: AWS_ACCESS_KEY_ID
+
+          volumeMounts:
+            # Mount PVC — shared persistent file storage
+            - name: upload-storage
+              mountPath: /data/uploads
+
+            # Mount ConfigMap as a config file on disk
+            - name: app-config-file
+              mountPath: /etc/app/app.properties
+              subPath: app.properties   # Mount only this key as a file
+
+            # Mount Secret as files on disk (more secure than env vars)
+            - name: app-secrets-vol
+              mountPath: /etc/secrets
+              readOnly: true
+
+      volumes:
+        # PVC volume — points to PersistentVolumeClaim
+        - name: upload-storage
+          persistentVolumeClaim:
+            claimName: local-pvc       # Or nfs-pvc / cloud-pvc-dynamic
+
+        # ConfigMap volume — exposes config file
+        - name: app-config-file
+          configMap:
+            name: app-config
+
+        # Secret volume — files readable only by container at runtime
+        - name: app-secrets-vol
+          secret:
+            secretName: app-secret
+            defaultMode: 0400          # Owner read-only

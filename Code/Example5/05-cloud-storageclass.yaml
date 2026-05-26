@@ -1,0 +1,46 @@
+# StorageClass for AWS EBS (dynamic provisioning)
+# Admin creates this once — K8s auto-provisions PV when PVC is created
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: aws-ebs-gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: ebs.csi.aws.com          # AWS EBS CSI driver
+volumeBindingMode: WaitForFirstConsumer  # Don't provision until Pod scheduled
+reclaimPolicy: Delete                  # PV deleted when PVC deleted
+allowVolumeExpansion: true             # Allow PVC resize without downtime
+parameters:
+  type: gp3
+  iops: "3000"
+  throughput: "125"
+  encrypted: "true"
+  fsType: ext4
+
+---
+# StorageClass for GCP Persistent Disk
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gcp-pd-ssd
+provisioner: pd.csi.storage.gke.io
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+parameters:
+  type: pd-ssd
+  replication-type: none
+
+---
+# StorageClass for Azure Disk
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: azure-disk-premium
+provisioner: disk.csi.azure.com
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+parameters:
+  skuName: Premium_LRS
+  kind: Managed

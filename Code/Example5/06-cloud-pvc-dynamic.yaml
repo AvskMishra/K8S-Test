@@ -1,0 +1,13 @@
+# Dynamic PVC — no manual PV needed. StorageClass creates PV automatically.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloud-pvc-dynamic
+  namespace: default
+spec:
+  storageClassName: aws-ebs-gp3      # References StorageClass from 05-
+  accessModes:
+    - ReadWriteOnce                  # EBS supports RWO only
+  resources:
+    requests:
+      storage: 50Gi

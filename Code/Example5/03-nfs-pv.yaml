@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv
+  labels:
+    type: nfs
+    storage-tier: shared
+spec:
+  storageClassName: manual-nfs
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteMany       # Multiple nodes can mount R/W simultaneously
+  persistentVolumeReclaimPolicy: Recycle  # Wipe data, reuse PV
+  nfs:
+    server: 192.168.1.100             # NFS server IP or hostname
+    path: /exports/k8s-shared         # Exported path on NFS server
+    readOnly: false
