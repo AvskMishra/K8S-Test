@@ -1,0 +1,65 @@
+<div class="page">
+  <div class="page-header">
+    <h1>K8s Dashboard</h1>
+    <button class="btn btn-primary" (click)="showAddForm.set(!showAddForm())">
+      {{ showAddForm() ? 'Cancel' : '+ Add Cluster' }}
+    </button>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+  @if (testResult()) {
+    <p class="info">{{ testResult() }}</p>
+  }
+
+  @if (showAddForm()) {
+    <form [formGroup]="form" (ngSubmit)="submit(false)" class="form-card">
+      <div class="field">
+        <label for="name">Cluster name *</label>
+        <input id="name" type="text" formControlName="name" placeholder="e.g. k8slab, prod-rhel9-cluster" />
+      </div>
+      <div class="field">
+        <label for="description">Description</label>
+        <input id="description" type="text" formControlName="description" placeholder="optional" />
+      </div>
+      <div class="field">
+        <label for="kubeconfig">Kubeconfig (paste the full YAML — get it via `kubectl config view --raw --flatten`)</label>
+        <textarea id="kubeconfig" formControlName="kubeconfigYaml" rows="10" class="mono"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Saving…' : 'Save Cluster' }}
+        </button>
+        <button type="button" class="btn" [disabled]="saving() || testing()" (click)="testPastedConfig()">
+          {{ testing() ? 'Testing…' : 'Save & Test Connection' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  @if (loading()) {
+    <p class="hint">Loading clusters…</p>
+  }
+
+  @if (!loading() && clusters().length === 0) {
+    <div class="empty-state">
+      <p>No clusters registered yet. Add one above — any cluster works, as long as you have its kubeconfig.</p>
+    </div>
+  }
+
+  @if (clusters().length > 0) {
+    <div class="cluster-grid">
+      @for (cluster of clusters(); track cluster.id) {
+        <div class="cluster-card" (click)="openDashboard(cluster)">
+          <div class="cluster-card-header">
+            <span class="cluster-name">{{ cluster.name }}</span>
+            <button class="icon-btn" (click)="removeCluster(cluster, $event)" title="Remove">✕</button>
+          </div>
+          <p class="cluster-desc">{{ cluster.description || 'No description' }}</p>
+          <p class="cluster-meta">Registered {{ cluster.createdAt | date:'medium' }}</p>
+        </div>
+      }
+    </div>
+  }
+</div>

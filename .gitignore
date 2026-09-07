@@ -1,0 +1,29 @@
+# .NET
+bin/
+obj/
+*.user
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+npm-debug.log
+yarn-error.log
+
+# Kubernetes credentials - contain live certs/private keys, never commit
+kubeconfig*.yaml
+kubeconfig*.yml
+**/register_cluster.json
+**/data/clusters.json
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

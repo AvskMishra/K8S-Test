@@ -1,0 +1,54 @@
+<div class="page">
+  <div class="page-header">
+    <h1>{{ isEditMode() ? 'Edit Product' : 'Add Product' }}</h1>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()" class="form-card">
+    <div class="field">
+      <label for="name">Name *</label>
+      <input id="name" type="text" formControlName="name" />
+      @if (form.controls.name.invalid && form.controls.name.touched) {
+        <span class="field-error">Name is required (max 200 characters).</span>
+      }
+    </div>
+
+    <div class="field">
+      <label for="category">Category</label>
+      <input id="category" type="text" formControlName="category" />
+    </div>
+
+    <div class="field">
+      <label for="description">Description</label>
+      <textarea id="description" formControlName="description" rows="3"></textarea>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="price">Price *</label>
+        <input id="price" type="number" step="0.01" min="0" formControlName="price" />
+        @if (form.controls.price.invalid && form.controls.price.touched) {
+          <span class="field-error">Price must be 0 or more.</span>
+        }
+      </div>
+
+      <div class="field">
+        <label for="quantity">Quantity *</label>
+        <input id="quantity" type="number" min="0" formControlName="quantity" />
+        @if (form.controls.quantity.invalid && form.controls.quantity.touched) {
+          <span class="field-error">Quantity must be 0 or more.</span>
+        }
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" [disabled]="saving()">
+        {{ saving() ? 'Saving…' : (isEditMode() ? 'Save Changes' : 'Create Product') }}
+      </button>
+      <a class="btn" routerLink="/">Cancel</a>
+    </div>
+  </form>
+</div>

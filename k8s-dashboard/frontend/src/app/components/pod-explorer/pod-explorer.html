@@ -1,0 +1,91 @@
+<div class="pod-explorer">
+  <h2>Pods</h2>
+  <select [value]="selectedNamespace()" (change)="onNamespaceChange($any($event.target).value)">
+    @for (ns of namespaces; track ns.metadata.name) {
+      <option [value]="ns.metadata.name">{{ ns.metadata.name }}</option>
+    }
+  </select>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+  @if (loading()) {
+    <p class="hint">Loading pods…</p>
+  }
+
+  <div class="pod-layout">
+    <table class="table">
+      <thead><tr><th>Name</th><th>Ready</th><th>Status</th><th>Node</th></tr></thead>
+      <tbody>
+        @for (pod of pods(); track pod.metadata.name) {
+          <tr [class.selected]="selectedPod()?.metadata?.name === pod.metadata.name" (click)="selectPod(pod)">
+            <td>{{ pod.metadata.name }}</td>
+            <td>{{ readyCount(pod) }}</td>
+            <td>{{ pod.status?.phase }}</td>
+            <td>{{ pod.spec?.nodeName }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    @if (selectedPod(); as pod) {
+      <div class="pod-detail">
+        <h3>{{ pod.metadata.name }}</h3>
+
+        <div class="tabs">
+          <button [class.active]="activeTab() === 'details'" (click)="activeTab.set('details')">Details</button>
+          <button [class.active]="activeTab() === 'logs'" (click)="activeTab.set('logs')">Logs</button>
+          <button [class.active]="activeTab() === 'exec'" (click)="activeTab.set('exec')">Exec</button>
+        </div>
+
+        @if (activeTab() === 'details') {
+          <p><strong>Phase:</strong> {{ pod.status?.phase }}</p>
+          <p><strong>Node:</strong> {{ pod.spec?.nodeName }}</p>
+          <p><strong>Pod IP:</strong> {{ pod.status?.podIP }}</p>
+          <p><strong>Containers:</strong> {{ pod.spec?.containers?.map(c => c.name)?.join(', ') }}</p>
+          <h4>Recent events</h4>
+          @if (podEvents().length === 0) {
+            <p class="hint">No events.</p>
+          }
+          @for (ev of podEvents(); track ev.metadata.name) {
+            <p class="event-line" [class.warning]="ev.type === 'Warning'">{{ ev.reason }}: {{ ev.message }}</p>
+          }
+        }
+
+        @if (activeTab() === 'logs') {
+          <div class="controls">
+            <select [(ngModel)]="selectedContainer">
+              @for (c of pod.spec?.containers; track c.name) {
+                <option [value]="c.name">{{ c.name }}</option>
+              }
+            </select>
+            <input type="number" [(ngModel)]="tailLines" placeholder="tail lines" />
+            <button class="btn btn-small" (click)="fetchLogs()" [disabled]="logsLoading()">
+              {{ logsLoading() ? 'Loading…' : 'Fetch Logs' }}
+            </button>
+          </div>
+          @if (logs(); as logText) {
+            <pre class="log-output">{{ logText }}</pre>
+          }
+        }
+
+        @if (activeTab() === 'exec') {
+          <div class="controls">
+            <select [(ngModel)]="selectedContainer">
+              @for (c of pod.spec?.containers; track c.name) {
+                <option [value]="c.name">{{ c.name }}</option>
+              }
+            </select>
+            <input type="text" [(ngModel)]="execCommand" placeholder="e.g. printenv, ls -la /app" class="command-input" />
+            <button class="btn btn-small" (click)="runExec()" [disabled]="execLoading()">
+              {{ execLoading() ? 'Running…' : 'Run' }}
+            </button>
+          </div>
+          @if (execOutput(); as output) {
+            <pre class="log-output">{{ output }}</pre>
+          }
+        }
+      </div>
+    }
+  </div>
+</div>

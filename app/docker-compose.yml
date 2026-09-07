@@ -1,0 +1,29 @@
+# Reference compose file documenting the local dev stack.
+# We ran these two containers via plain `podman run` (scripts/run-mongo.sh,
+# scripts/run-api.sh) since podman-compose isn't installed in this WSL2
+# Ubuntu environment, but this file is kept as the readable, single-source
+# description of the setup, and works as-is with `docker compose up` or
+# `podman-compose up` if you install either later.
+services:
+  mongo:
+    image: docker.io/library/mongo:7
+    container_name: mongo-dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-dev-data:/data/db
+
+  product-api:
+    build:
+      context: ./backend/ProductApi
+    container_name: product-api-dev
+    ports:
+      - "8080:8080"
+    environment:
+      MongoDbSettings__ConnectionString: "mongodb://mongo:27017"
+      MongoDbSettings__DatabaseName: "ProductCatalog"
+    depends_on:
+      - mongo
+
+volumes:
+  mongo-dev-data:

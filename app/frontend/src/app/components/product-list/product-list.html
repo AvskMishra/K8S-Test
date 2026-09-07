@@ -1,0 +1,61 @@
+<div class="page">
+  <div class="page-header">
+    <h1>Product Catalog</h1>
+    <a class="btn btn-primary" routerLink="/products/new">+ Add Product</a>
+  </div>
+
+  @if (loading()) {
+    <p class="hint">Loading products…</p>
+  }
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (!loading() && !error() && products().length === 0) {
+    <div class="empty-state">
+      <div class="empty-icon">📦</div>
+      <h3>No products yet</h3>
+      <p>Add your first product to get the catalog started.</p>
+      <a class="btn btn-primary" routerLink="/products/new">+ Add Product</a>
+    </div>
+  }
+
+  @if (products().length > 0) {
+    <div class="table-card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Quantity</th>
+            <th>Description</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (product of products(); track product.id) {
+            <tr>
+              <td class="product-name">{{ product.name }}</td>
+              <td>
+                @if (product.category) {
+                  <span class="badge">{{ product.category }}</span>
+                } @else {
+                  —
+                }
+              </td>
+              <td class="price-tag">{{ product.price | currency }}</td>
+              <td>{{ product.quantity }}</td>
+              <td class="description-col">{{ product.description || '—' }}</td>
+              <td class="actions-col">
+                <a class="btn btn-small" [routerLink]="['/products', product.id, 'edit']">Edit</a>
+                <button class="btn btn-small btn-danger" (click)="deleteProduct(product)">Delete</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

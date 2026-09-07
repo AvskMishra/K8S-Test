@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8sexplorer
+  namespace: k8sexplorer
+---
+# Cluster-scoped because the app lets you browse ANY namespace (it lists
+# namespaces itself and lets you pick one) — matches what a kubeconfig user
+# with cluster-read access could already see via `kubectl get -A`.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8sexplorer-read
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "namespaces", "pods", "services", "events"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8sexplorer-read
+subjects:
+  - kind: ServiceAccount
+    name: k8sexplorer
+    namespace: k8sexplorer
+roleRef:
+  kind: ClusterRole
+  name: k8sexplorer-read
+  apiGroup: rbac.authorization.k8s.io

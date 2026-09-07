@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-api
+  namespace: product-catalog
+spec:
+  replicas: 3  # 3 replicas across 3 nodes — see topologySpreadConstraints below
+  selector:
+    matchLabels:
+      app: product-api
+  template:
+    metadata:
+      labels:
+        app: product-api
+    spec:
+      # Spread the 3 replicas across all 3 nodes instead of letting the
+      # scheduler bin-pack them onto one — this is what actually makes
+      # "runs on all three worker/control-plane nodes" true rather than
+      # incidental.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: product-api
+      containers:
+        - name: product-api
+          image: localhost/product-api:dev
+          imagePullPolicy: Never  # image is loaded locally via `minikube image load`, not pulled from a registry
+          ports:
+            - containerPort: 8080
+          env:
+            - name: MongoDbSettings__ConnectionString
+              value: mongodb://mongo:27017
+            - name: MongoDbSettings__DatabaseName
+              value: ProductCatalog
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-api
+  namespace: product-catalog
+spec:
+  selector:
+    app: product-api
+  ports:
+    - port: 8080
+      targetPort: 8080

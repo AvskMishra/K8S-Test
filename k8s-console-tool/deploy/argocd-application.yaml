@@ -1,0 +1,22 @@
+# Example only — adjust repoURL/path to wherever this repo (or a separate
+# manifest-only repo, if you split code and config) actually lives.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: k8sexplorer
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://git.example.com/your-org/k8s-console-tool.git
+    targetRevision: main
+    path: deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: k8sexplorer
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

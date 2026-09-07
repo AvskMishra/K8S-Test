@@ -1,0 +1,131 @@
+<div class="dashboard">
+  <aside class="sidebar">
+    <a routerLink="/" class="back-link">← Clusters</a>
+    <nav>
+      <button [class.active]="section() === 'nodes'" (click)="selectSection('nodes')">Nodes</button>
+      <button [class.active]="section() === 'pods'" (click)="selectSection('pods')">Pods</button>
+      <button [class.active]="section() === 'deployments'" (click)="selectSection('deployments')">Deployments</button>
+      <button [class.active]="section() === 'services'" (click)="selectSection('services')">Services</button>
+      <button [class.active]="section() === 'events'" (click)="selectSection('events')">Events</button>
+    </nav>
+  </aside>
+
+  <main class="content">
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+    @if (loading()) {
+      <p class="hint">Loading…</p>
+    }
+
+    <!-- NODES -->
+    @if (section() === 'nodes' && !loading()) {
+      <h2>Nodes</h2>
+      <table class="table">
+        <thead>
+          <tr><th>Name</th><th>Status</th><th>Runtime</th><th>Kubelet</th><th></th></tr>
+        </thead>
+        <tbody>
+          @for (node of nodes(); track node.metadata.name) {
+            <tr>
+              <td>{{ node.metadata.name }}</td>
+              <td><span [class]="isNodeReady(node) ? 'badge badge-ok' : 'badge badge-bad'">{{ isNodeReady(node) ? 'Ready' : 'NotReady' }}</span></td>
+              <td>{{ node.status?.nodeInfo?.containerRuntimeVersion }}</td>
+              <td>{{ node.status?.nodeInfo?.kubeletVersion }}</td>
+              <td><button class="btn btn-small" (click)="viewNodeDetails(node)">Details</button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (selectedNode(); as node) {
+        <div class="detail-panel">
+          <h3>{{ node.metadata.name }}</h3>
+          <p><strong>OS Image:</strong> {{ node.status?.nodeInfo?.osImage }}</p>
+          <p><strong>Kernel:</strong> {{ node.status?.nodeInfo?.kernelVersion }}</p>
+          <p><strong>Architecture:</strong> {{ node.status?.nodeInfo?.architecture }}</p>
+          <p><strong>Addresses:</strong> {{ node.status?.addresses?.map(a => a.type + '=' + a.address)?.join(', ') }}</p>
+          <p><strong>Taints:</strong> {{ node.spec?.taints?.length ? node.spec!.taints!.map(t => t.key).join(', ') : 'none' }}</p>
+          <h4>Recent events</h4>
+          @if (nodeEvents().length === 0) {
+            <p class="hint">No events.</p>
+          }
+          @for (ev of nodeEvents(); track ev.metadata.name) {
+            <p class="event-line" [class.warning]="ev.type === 'Warning'">{{ ev.reason }}: {{ ev.message }}</p>
+          }
+        </div>
+      }
+    }
+
+    <!-- PODS -->
+    @if (section() === 'pods') {
+      <app-pod-explorer [clusterId]="clusterId" [namespaces]="namespaces()"></app-pod-explorer>
+    }
+
+    <!-- DEPLOYMENTS -->
+    @if (section() === 'deployments' && !loading()) {
+      <h2>Deployments</h2>
+      <select [value]="selectedNamespace()" (change)="onNamespaceChange($any($event.target).value)">
+        @for (ns of namespaces(); track ns.metadata.name) {
+          <option [value]="ns.metadata.name">{{ ns.metadata.name }}</option>
+        }
+      </select>
+      <table class="table">
+        <thead><tr><th>Name</th><th>Ready</th><th>Up-to-date</th><th>Available</th></tr></thead>
+        <tbody>
+          @for (d of deployments(); track d.metadata.name) {
+            <tr>
+              <td>{{ d.metadata.name }}</td>
+              <td>{{ d.status?.readyReplicas || 0 }}/{{ d.status?.replicas || 0 }}</td>
+              <td>{{ d.status?.updatedReplicas || 0 }}</td>
+              <td>{{ d.status?.availableReplicas || 0 }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    <!-- SERVICES -->
+    @if (section() === 'services' && !loading()) {
+      <h2>Services</h2>
+      <select [value]="selectedNamespace()" (change)="onNamespaceChange($any($event.target).value)">
+        @for (ns of namespaces(); track ns.metadata.name) {
+          <option [value]="ns.metadata.name">{{ ns.metadata.name }}</option>
+        }
+      </select>
+      <table class="table">
+        <thead><tr><th>Name</th><th>Type</th><th>Cluster-IP</th><th>Ports</th></tr></thead>
+        <tbody>
+          @for (s of services(); track s.metadata.name) {
+            <tr>
+              <td>{{ s.metadata.name }}</td>
+              <td>{{ s.spec?.type }}</td>
+              <td>{{ s.spec?.clusterIP }}</td>
+              <td>{{ s.spec?.ports?.map(p => p.port + '/' + p.protocol)?.join(', ') }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    <!-- EVENTS -->
+    @if (section() === 'events' && !loading()) {
+      <h2>Recent Events (all namespaces)</h2>
+      <table class="table">
+        <thead><tr><th>Last Seen</th><th>Namespace</th><th>Type</th><th>Object</th><th>Reason</th><th>Message</th></tr></thead>
+        <tbody>
+          @for (ev of events(); track ev.metadata.name) {
+            <tr [class.warning-row]="ev.type === 'Warning'">
+              <td>{{ ev.lastTimestamp | date:'short' }}</td>
+              <td>{{ ev.metadata.namespace }}</td>
+              <td>{{ ev.type }}</td>
+              <td>{{ ev.involvedObject.kind }}/{{ ev.involvedObject.name }}</td>
+              <td>{{ ev.reason }}</td>
+              <td>{{ ev.message }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </main>
+</div>

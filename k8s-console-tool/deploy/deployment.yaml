@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8sexplorer
+  namespace: k8sexplorer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8sexplorer
+  template:
+    metadata:
+      labels:
+        app: k8sexplorer
+    spec:
+      serviceAccountName: k8sexplorer
+      containers:
+        - name: k8sexplorer
+          image: your-registry.example.com/k8sexplorer:latest # kustomize `images:` overrides this tag per deploy
+          # The app needs a real interactive TTY (Spectre.Console arrow-key
+          # menus) — it does not run standalone as a normal pod entrypoint.
+          # Idle here, then attach on demand:
+          #   kubectl exec -it -n k8sexplorer deploy/k8sexplorer -- dotnet K8sExplorer.dll
+          command: ["sleep", "infinity"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
