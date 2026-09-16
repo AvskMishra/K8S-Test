@@ -1,0 +1,44 @@
+# The exact set of permissions PatchOrchestrator needs against the cluster - nothing more.
+#
+# This app runs OUTSIDE the cluster (a plain .NET background service, pointed at a kubeconfig -
+# see ../README.md), so these rules describe what the kubeconfig's user/service-account needs to
+# be allowed to do. If this is ever deployed to run INSIDE the cluster instead, bind the same
+# ClusterRole to a ServiceAccount and give the pod that ServiceAccount - the permissions don't change.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: patch-orchestrator
+rules:
+  # Read every node's status, and patch a node's spec - needed for cordon/uncordon (spec.unschedulable)
+  # and for adding/removing this app's own taint (spec.taints). Cluster-scoped because a node isn't
+  # namespaced and a patch schedule can name any node in the cluster.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "patch"]
+
+  # Read pods across every namespace, to find what's running on a node that's about to be patched.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+
+  # Create an Eviction for a pod - this is the graceful-migration mechanism (same one `kubectl
+  # drain` uses). Deliberately NOT "delete" on pods themselves - eviction is the only pod-removal
+  # permission this app has, so it can never do a sudden/ungraceful pod kill even by accident.
+  - apiGroups: [""]
+    resources: ["pods/eviction"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: patch-orchestrator
+subjects:
+  # Swap this for whichever identity actually authenticates as - the user/cert in the kubeconfig
+  # this app is pointed at, or a ServiceAccount if this later runs inside the cluster.
+  - kind: User
+    name: patch-orchestrator
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: patch-orchestrator
+  apiGroup: rbac.authorization.k8s.io
