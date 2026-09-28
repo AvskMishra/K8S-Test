@@ -31,11 +31,27 @@ public class KubernetesService
         return list.Items;
     }
 
+    public Task<V1Node> GetNodeAsync(string name) => _client.CoreV1.ReadNodeAsync(name);
+
     public async Task<IList<V1Pod>> GetPodsAsync(string namespaceName)
     {
         var list = await _client.CoreV1.ListNamespacedPodAsync(namespaceName);
         return list.Items;
     }
+
+    // namespaceName null = all namespaces; nodeName narrows to pods scheduled
+    // on that node (the same field selector kubectl uses for --field-selector).
+    public async Task<IList<V1Pod>> FindPodsAsync(string? namespaceName, string? nodeName)
+    {
+        var fieldSelector = nodeName is null ? null : $"spec.nodeName={nodeName}";
+        var list = namespaceName is null
+            ? await _client.CoreV1.ListPodForAllNamespacesAsync(fieldSelector: fieldSelector)
+            : await _client.CoreV1.ListNamespacedPodAsync(namespaceName, fieldSelector: fieldSelector);
+        return list.Items;
+    }
+
+    public Task<V1Pod> GetPodAsync(string namespaceName, string name) =>
+        _client.CoreV1.ReadNamespacedPodAsync(name, namespaceName);
 
     public async Task<IList<V1Deployment>> GetDeploymentsAsync(string namespaceName)
     {
@@ -89,14 +105,18 @@ public class KubernetesService
     // whatever it printed to stdout/stderr. Not a full interactive shell —
     // deliberately kept simple, matching "see the log/output in the console"
     // rather than building a terminal emulator.
-    public async Task<string> ExecInPodAsync(string namespaceName, string podName, string containerName, string command)
+    public Task<string> ExecInPodAsync(string namespaceName, string podName, string containerName, string command) =>
+        ExecInPodAsync(namespaceName, podName, containerName, new[] { "/bin/sh", "-c", command });
+
+    // argv form: runs the program directly, no shell (like `kubectl exec -- cmd args`).
+    public async Task<string> ExecInPodAsync(string namespaceName, string podName, string containerName, string[] command)
     {
         var output = new System.Text.StringBuilder();
 
         using var webSocket = await _client.WebSocketNamespacedPodExecAsync(
             name: podName,
             @namespace: namespaceName,
-            command: new[] { "/bin/sh", "-c", command },
+            command: command,
             container: containerName);
 
         var demuxer = new StreamDemuxer(webSocket);

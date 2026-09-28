@@ -49,12 +49,23 @@ Main Menu
 ├─ 1. Nodes
 │   ├─ 1.1  List all nodes
 │   ├─ 1.2  Node details (select a node)   — capacity, allocatable, conditions, addresses, labels, taints
-│   └─ 1.3  Node events (select a node)    — see §5 for why this is "node logs" here
+│   ├─ 1.3  Node events (select a node)    — see §5 for why this is "node logs" here
+│   ├─ 1.4  Cordon node(s)                 ┐
+│   ├─ 1.5  Uncordon node(s)               │
+│   ├─ 1.6  Drain node(s)                  │ multi-select; see §4a
+│   ├─ 1.7  Add / update a taint           │
+│   ├─ 1.8  Remove a taint                 │
+│   ├─ 1.9  Add / update a label           │
+│   └─ 1.10 Remove a label                 ┘
 ├─ 2. Pods
 │   ├─ 2.1  List pods (select a namespace)
 │   ├─ 2.2  Pod details (select namespace + pod)   — containers, images, container states, recent pod events
 │   ├─ 2.3  Pod logs (select namespace + pod + container, choose tail length)
-│   └─ 2.4  Pod exec (select namespace + pod + container, type a command)
+│   ├─ 2.4  Pod exec (select namespace + pod + container, type a command)
+│   ├─ 2.5  Delete / restart pod(s) — graceful or force   ┐
+│   ├─ 2.6  Evict pod(s) — respects PodDisruptionBudgets  │ multi-select; see §4a
+│   ├─ 2.7  Rollout-restart the owning workload(s)        │
+│   └─ 2.8  Add / remove a pod label                      ┘
 ├─ 3. Deployments  →  3.1  List deployments (select a namespace)
 ├─ 4. Services     →  4.1  List services (select a namespace)
 ├─ 5. Namespaces   →  5.1  List all namespaces
@@ -62,6 +73,51 @@ Main Menu
 ```
 
 Every selection — namespace, node, pod, container — is chosen from a **live list fetched from the cluster** via `SelectionPrompt<T>`, never typed freely. That's what makes "generic, works on any cluster/node/pod" concretely true rather than aspirational: there's no hardcoded name anywhere in the menu code.
+
+## 4a. Node and pod operations (the write side)
+
+Everything that changes cluster state lives in `Services/ClusterOperationsService.cs`, separate from the read-only `KubernetesService`, and needs its own RBAC (`k8sexplorer-operate` in `deploy/rbac.yaml`). Nodes and pods are picked with a `MultiSelectionPrompt` (space to toggle), every action asks for confirmation, and each selected item gets its own ok/failed line — one failure doesn't stop the rest.
+
+| Menu | API call | kubectl equivalent |
+|---|---|---|
+| Cordon / uncordon | merge-patch `spec.unschedulable` | `kubectl cordon` / `uncordon` |
+| Taint add / remove | merge-patch `spec.taints` (with `resourceVersion`, so a concurrent edit gives 409 rather than being lost) | `kubectl taint nodes n k=v:Effect` / `k:Effect-` |
+| Label add / remove | merge-patch `metadata.labels` (null removes) | `kubectl label nodes/pods ...` |
+| Drain | cordon → classify pods → Eviction API per pod (retries while a PDB refuses) → wait until gone | `kubectl drain [--ignore-daemonsets] [--delete-emptydir-data] [--force]` |
+| Delete pod | `DELETE` pod (grace 0 for force) | `kubectl delete pod [--grace-period=0 --force]` |
+| Evict pod | `pods/eviction` | — (what drain uses) |
+| Rollout restart | patch `kubectl.kubernetes.io/restartedAt` on the pod template of the Deployment (found via ReplicaSet owner) / StatefulSet / DaemonSet | `kubectl rollout restart` |
+
+Drain matches kubectl's safety rules: mirror/static pods are always skipped; DaemonSet pods, controller-less pods and emptyDir pods each **block the whole drain** unless the matching option is enabled, and in that case nothing is evicted (the node is left cordoned).
+
+## 4b. Command-line mode
+
+Everything the menus do can also be run in one shot, with names passed as arguments instead of picked (`Cli/CommandLine.cs`). No arguments still opens the interactive menus. Syntax follows kubectl; `K8sExplorer --help` prints the full list.
+
+```powershell
+K8sExplorer nodes list
+K8sExplorer nodes get k8slab-m02                      # details
+K8sExplorer nodes pods k8slab-m02                     # pods on that node
+K8sExplorer nodes cordon k8slab-m02 k8slab-m03
+K8sExplorer nodes uncordon k8slab-m02 k8slab-m03
+K8sExplorer nodes drain k8slab-m04 --ignore-daemonsets --delete-emptydir-data [--force] [--timeout 120]
+K8sExplorer nodes taint k8slab-m02 dedicated=db:NoSchedule
+K8sExplorer nodes taint k8slab-m02 dedicated:NoSchedule-      # trailing '-' removes
+K8sExplorer nodes label k8slab-m02 disk=ssd  |  disk-
+
+K8sExplorer pods list -n product-catalog  |  -A  |  --node k8slab-m02
+K8sExplorer pods get <pod> -n product-catalog
+K8sExplorer pods logs <pod> -n product-catalog [-c container] [--tail 100]
+K8sExplorer pods exec <pod> -n product-catalog printenv HOSTNAME   # options before the command; `--` also accepted
+K8sExplorer pods delete <pod>... -n product-catalog [--force]
+K8sExplorer pods evict <pod>... -n product-catalog
+K8sExplorer pods restart <pod>... -n product-catalog   # rollout-restarts the owning Deployment/StatefulSet/DaemonSet, once each
+K8sExplorer pods label <pod>... -n product-catalog tier=web  |  tier-
+
+K8sExplorer deployments list -n product-catalog | services list -n ... | namespaces list | events [-n ...]
+```
+
+From the source folder, prefix with `dotnet run --` (e.g. `dotnet run -- nodes cordon k8slab-m02`). Several names can be given at once; each gets its own ok/failed line. There are no confirmation prompts in this mode — the command line *is* the confirmation — so it can be scripted. `--kubeconfig <path>` works on every command. Exit code: 0 success, 1 an operation failed on any item, 2 bad arguments (reported before the cluster is contacted).
 
 ---
 
@@ -134,6 +190,8 @@ Both bridge scripts are kept (`app/scripts/start-kubectl-proxy.sh` and `app/scri
 
 ## 7. Running it
 
+> For a step-by-step walkthrough of every feature against `k8slab` (setup, each command with its expected output, verification and undo), see [MANUAL-TESTING.md](MANUAL-TESTING.md).
+
 **Interactive (the normal way):**
 ```powershell
 cd C:\CodeBase\k8s-console-tool\K8sExplorer
@@ -148,7 +206,12 @@ dotnet run -- --smoke-test "C:\CodeBase\k8s-console-tool\kubeconfig-direct.yaml"
 
 **Prerequisite for `k8slab` specifically** — the tunnel bridge must be running (it doesn't survive a WSL2 restart):
 ```powershell
-wsl -d Ubuntu -u root -- bash /mnt/c/CodeBase/app/scripts/start-api-tcp-tunnel.sh
+wsl -d Ubuntu -u root -- bash /mnt/c/CodeBase/K8S-Test/app/scripts/start-api-tcp-tunnel.sh
+```
+
+**Non-interactive check of the write operations** (changes the cluster: labels/taints/cordons then restores the last worker node, drains it and uncordons it, rollout-restarts `product-api`):
+```powershell
+dotnet run -- --ops-smoke-test "C:\CodeBase\K8S-Test\k8s-console-tool\kubeconfig-direct.yaml"
 ```
 
 ---

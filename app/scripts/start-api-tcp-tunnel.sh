@@ -13,5 +13,5 @@ cat /tmp/api-tunnel.log
 echo "--- writing a flattened, portable kubeconfig for Windows-side use ---"
 kubectl config view --raw --minify --flatten > /tmp/kubeconfig-direct.yaml
 sed -i 's#server: https://.*#server: https://localhost:6443#' /tmp/kubeconfig-direct.yaml
-cp /tmp/kubeconfig-direct.yaml /mnt/c/CodeBase/k8s-console-tool/kubeconfig-direct.yaml
-echo "wrote C:\CodeBase\k8s-console-tool\kubeconfig-direct.yaml"
+cp /tmp/kubeconfig-direct.yaml /mnt/c/CodeBase/K8S-Test/k8s-console-tool/kubeconfig-direct.yaml
+echo "wrote C:\CodeBase\K8S-Test\k8s-console-tool\kubeconfig-direct.yaml"

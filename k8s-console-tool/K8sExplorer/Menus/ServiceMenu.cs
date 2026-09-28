@@ -29,30 +29,7 @@ public class ServiceMenu
                     .AddChoices(namespaces.Select(n => n.Metadata.Name)));
 
             var services = await AnsiConsole.Status().StartAsync("Fetching services...", _ => _k8s.GetServicesAsync(ns));
-
-            var table = new Table().Border(TableBorder.Rounded);
-            table.AddColumn("Name");
-            table.AddColumn("Type");
-            table.AddColumn("Cluster-IP");
-            table.AddColumn("Ports");
-            table.AddColumn("Age");
-
-            foreach (var svc in services)
-            {
-                var ports = svc.Spec?.Ports is { Count: > 0 }
-                    ? string.Join(", ", svc.Spec.Ports.Select(p =>
-                        p.NodePort is > 0 ? $"{p.Port}:{p.NodePort}/{p.Protocol}" : $"{p.Port}/{p.Protocol}"))
-                    : "-";
-
-                table.AddRow(
-                    svc.Metadata.Name,
-                    svc.Spec?.Type ?? "-",
-                    svc.Spec?.ClusterIP ?? "-",
-                    ports,
-                    Formatting.GetAge(svc.Metadata.CreationTimestamp));
-            }
-
-            AnsiConsole.Write(table);
+            Views.Services(services);
         }
     }
 }

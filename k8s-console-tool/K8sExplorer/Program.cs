@@ -16,8 +16,26 @@ if (args.Length > 0 && args[0] == "--smoke-test")
     return;
 }
 
+// --ops-smoke-test <kubeconfig>: same idea for the state-changing operations
+// (cordon/drain/taint/label nodes, restart/label pods). Modifies the cluster.
+if (args.Length > 0 && args[0] == "--ops-smoke-test")
+{
+    var path = args.Length > 1 ? args[1] : defaultConfigPath;
+    await SmokeTest.RunOpsAsync(path);
+    return;
+}
+
+// Any other arguments = command-line mode (e.g. `nodes cordon k8slab-m02`),
+// run once and exit. See Cli/CommandLine.cs or run with --help.
+if (args.Length > 0)
+{
+    Environment.ExitCode = await K8sExplorer.Cli.CommandLine.RunAsync(args, defaultConfigPath);
+    return;
+}
+
 AnsiConsole.Write(new FigletText("K8sExplorer").Color(Color.Blue));
-AnsiConsole.MarkupLine("[grey]Browse any Kubernetes cluster's nodes, pods, deployments, services, and events — no SSH, no kubectl required.[/]\n");
+AnsiConsole.MarkupLine("[grey]Browse any Kubernetes cluster's nodes, pods, deployments, services, and events — and cordon/drain/taint nodes or " +
+                       "delete/evict/restart pods — no SSH, no kubectl required.[/]\n");
 
 var kubeconfigPath = AnsiConsole.Prompt(
     new TextPrompt<string>("Path to kubeconfig file (blank = default ~/.kube/config):")
@@ -25,10 +43,12 @@ var kubeconfigPath = AnsiConsole.Prompt(
         .AllowEmpty());
 
 KubernetesService k8sService;
+ClusterOperationsService opsService;
 try
 {
     var client = KubeClientFactory.Create(string.IsNullOrWhiteSpace(kubeconfigPath) ? null : kubeconfigPath);
     k8sService = new KubernetesService(client);
+    opsService = new ClusterOperationsService(client);
 
     // Quick connectivity check before showing the menu.
     await AnsiConsole.Status().StartAsync("Connecting to cluster...", async _ => await k8sService.GetNamespacesAsync());
@@ -40,8 +60,8 @@ catch (Exception ex)
     return;
 }
 
-var nodeMenu = new NodeMenu(k8sService);
-var podMenu = new PodMenu(k8sService);
+var nodeMenu = new NodeMenu(k8sService, opsService);
+var podMenu = new PodMenu(k8sService, opsService);
 var deploymentMenu = new DeploymentMenu(k8sService);
 var serviceMenu = new ServiceMenu(k8sService);
 var namespaceMenu = new NamespaceMenu(k8sService);

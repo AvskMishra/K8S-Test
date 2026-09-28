@@ -53,4 +53,58 @@ internal static class SmokeTest
 
         Console.WriteLine("\nSmoke test completed successfully.");
     }
+
+    // --ops-smoke-test: exercises every ClusterOperationsService call against
+    // the last worker node and the product-catalog namespace. This DOES
+    // change the cluster (it drains a node and restarts product-api), but
+    // puts the node back as it found it: uncordoned, test taint/label gone.
+    public static async Task RunOpsAsync(string kubeconfigPath)
+    {
+        Console.WriteLine($"Using kubeconfig: {kubeconfigPath}");
+        var client = KubeClientFactory.Create(kubeconfigPath);
+        var k8s = new KubernetesService(client);
+        var ops = new ClusterOperationsService(client);
+
+        var node = (await k8s.GetNodesAsync())
+            .Where(n => K8sExplorer.Display.Formatting.GetNodeRoles(n) == "<none>")
+            .OrderBy(n => n.Metadata.Name)
+            .Last().Metadata.Name;
+        async Task<k8s.Models.V1Node> Node() => (await k8s.GetNodesAsync()).First(n => n.Metadata.Name == node);
+        Console.WriteLine($"Target worker node: {node}");
+
+        await ops.SetNodeLabelAsync(node, "k8sexplorer/smoke", "yes");
+        Console.WriteLine($"label set:      {(await Node()).Metadata.Labels["k8sexplorer/smoke"]}");
+        await ops.SetNodeLabelAsync(node, "k8sexplorer/smoke", null);
+        Console.WriteLine($"label removed:  {!(await Node()).Metadata.Labels.ContainsKey("k8sexplorer/smoke")}");
+
+        await ops.AddOrUpdateTaintAsync(node, new k8s.Models.V1Taint { Key = "k8sexplorer/smoke", Value = "yes", Effect = "NoSchedule" });
+        Console.WriteLine($"taint added:    {K8sExplorer.Display.Formatting.GetNodeTaints(await Node())}");
+        var removed = await ops.RemoveTaintAsync(node, "k8sexplorer/smoke", "NoSchedule");
+        Console.WriteLine($"taint removed:  {removed} -> {K8sExplorer.Display.Formatting.GetNodeTaints(await Node())}");
+
+        await ops.SetNodeUnschedulableAsync(node, true);
+        Console.WriteLine($"cordoned:       unschedulable={(await Node()).Spec.Unschedulable}");
+        await ops.SetNodeUnschedulableAsync(node, false);
+        Console.WriteLine($"uncordoned:     unschedulable={(await Node()).Spec.Unschedulable ?? false}");
+
+        Console.WriteLine("\n=== Drain ===");
+        var result = await ops.DrainNodeAsync(node, new DrainOptions(true, true, false, TimeSpan.FromSeconds(180)), msg => Console.WriteLine($"  {msg}"));
+        Console.WriteLine($"evicted={result.Evicted.Count} skipped={result.Skipped.Count} blocked={result.Blocked.Count} failed={result.Failed.Count}");
+        foreach (var line in result.Skipped.Concat(result.Blocked).Concat(result.Failed)) Console.WriteLine($"  {line}");
+        await ops.SetNodeUnschedulableAsync(node, false);
+        Console.WriteLine("uncordoned after drain");
+
+        Console.WriteLine("\n=== Pods ===");
+        var api = (await k8s.GetPodsAsync("product-catalog")).First(p => p.Metadata.Name.StartsWith("product-api"));
+        var workload = await ops.GetOwningWorkloadAsync(api);
+        Console.WriteLine($"{api.Metadata.Name} is owned by {workload}");
+        await ops.RestartWorkloadAsync(workload!);
+        Console.WriteLine($"rollout restart requested for {workload}");
+
+        await ops.SetPodLabelAsync("product-catalog", api.Metadata.Name, "k8sexplorer-smoke", "yes");
+        await ops.SetPodLabelAsync("product-catalog", api.Metadata.Name, "k8sexplorer-smoke", null);
+        Console.WriteLine($"pod label add/remove ok on {api.Metadata.Name}");
+
+        Console.WriteLine("\nOps smoke test completed successfully.");
+    }
 }

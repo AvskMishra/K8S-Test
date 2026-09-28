@@ -1,3 +1,4 @@
+using K8sExplorer.Display;
 using K8sExplorer.Services;
 using Spectre.Console;
 
@@ -32,28 +33,7 @@ public class EventMenu
 
             var ns = pick == "(all namespaces)" ? null : pick;
             var events = await AnsiConsole.Status().StartAsync("Fetching events...", _ => _k8s.GetEventsAsync(ns));
-
-            var table = new Table().Border(TableBorder.Rounded);
-            table.AddColumn("Last Seen");
-            table.AddColumn("Namespace");
-            table.AddColumn("Type");
-            table.AddColumn("Object");
-            table.AddColumn("Reason");
-            table.AddColumn("Message");
-
-            foreach (var ev in events.OrderByDescending(e => e.LastTimestamp).Take(50))
-            {
-                table.AddRow(
-                    ev.LastTimestamp?.ToString("u") ?? "-",
-                    ev.Metadata.NamespaceProperty ?? "-",
-                    ev.Type == "Warning" ? "[yellow]Warning[/]" : "Normal",
-                    $"{ev.InvolvedObject.Kind}/{ev.InvolvedObject.Name}",
-                    ev.Reason ?? "-",
-                    ev.Message ?? "-");
-            }
-
-            AnsiConsole.Write(table);
-            AnsiConsole.MarkupLine("[grey](showing the 50 most recent)[/]");
+            Views.RecentEvents(events);
         }
     }
 }

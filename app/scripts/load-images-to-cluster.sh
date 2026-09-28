@@ -6,7 +6,9 @@
 # image loaded via `podman load` there becomes visible to CRI-O too.
 set -ex
 
-NODES="k8slab k8slab-m02 k8slab-m03"
+# Node names match their podman container names, so discover them rather
+# than hardcoding — a node added later (minikube node add) needs the images too.
+NODES=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
 IMAGES="product-api:dev product-frontend:dev"
 
 for img in $IMAGES; do

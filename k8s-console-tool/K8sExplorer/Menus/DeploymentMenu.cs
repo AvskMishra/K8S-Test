@@ -29,25 +29,7 @@ public class DeploymentMenu
                     .AddChoices(namespaces.Select(n => n.Metadata.Name)));
 
             var deployments = await AnsiConsole.Status().StartAsync("Fetching deployments...", _ => _k8s.GetDeploymentsAsync(ns));
-
-            var table = new Table().Border(TableBorder.Rounded);
-            table.AddColumn("Name");
-            table.AddColumn("Ready");
-            table.AddColumn("Up-to-date");
-            table.AddColumn("Available");
-            table.AddColumn("Age");
-
-            foreach (var d in deployments)
-            {
-                table.AddRow(
-                    d.Metadata.Name,
-                    $"{d.Status?.ReadyReplicas ?? 0}/{d.Status?.Replicas ?? 0}",
-                    (d.Status?.UpdatedReplicas ?? 0).ToString(),
-                    (d.Status?.AvailableReplicas ?? 0).ToString(),
-                    Formatting.GetAge(d.Metadata.CreationTimestamp));
-            }
-
-            AnsiConsole.Write(table);
+            Views.Deployments(deployments);
         }
     }
 }

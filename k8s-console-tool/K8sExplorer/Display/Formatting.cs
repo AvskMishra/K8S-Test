@@ -27,6 +27,15 @@ public static class Formatting
         return roles.Count > 0 ? string.Join(",", roles) : "<none>";
     }
 
+    // kubectl's taint notation: key=value:Effect (value omitted when empty).
+    public static string GetNodeTaints(V1Node node)
+    {
+        var taints = node.Spec?.Taints;
+        if (taints is null || taints.Count == 0) return "<none>";
+        return string.Join(", ", taints.Select(t =>
+            string.IsNullOrEmpty(t.Value) ? $"{t.Key}:{t.Effect}" : $"{t.Key}={t.Value}:{t.Effect}"));
+    }
+
     public static string GetAge(DateTime? creationTimestamp)
     {
         if (creationTimestamp is null) return "<unknown>";

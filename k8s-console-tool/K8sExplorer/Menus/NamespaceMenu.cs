@@ -22,18 +22,7 @@ public class NamespaceMenu
             if (choice == "0. Back") return;
 
             var namespaces = await AnsiConsole.Status().StartAsync("Fetching namespaces...", _ => _k8s.GetNamespacesAsync());
-
-            var table = new Table().Border(TableBorder.Rounded);
-            table.AddColumn("Name");
-            table.AddColumn("Status");
-            table.AddColumn("Age");
-
-            foreach (var ns in namespaces)
-            {
-                table.AddRow(ns.Metadata.Name, ns.Status?.Phase ?? "-", Formatting.GetAge(ns.Metadata.CreationTimestamp));
-            }
-
-            AnsiConsole.Write(table);
+            Views.Namespaces(namespaces);
         }
     }
 }
