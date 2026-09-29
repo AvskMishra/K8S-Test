@@ -377,7 +377,171 @@ The read-only equivalent is `dotnet run -- --smoke-test "...kubeconfig-local.yam
 
 ---
 
-## Part 8 — Final cleanup checklist
+## Part 8 — Test the workload and patch manager
+
+This part tests the separate .NET workload and the in-cluster schedule manager. The manager is deployed with `PATCH_DRY_RUN=true`; its normal test only reports what it would do and does not cordon or drain nodes. The current manager implementation does **not** drain nodes or signal the third-party patcher.
+
+Run these steps after Parts 0 and 1.1 have confirmed the `k8slab` cluster is running. Use the repository root in PowerShell:
+
+```powershell
+cd C:\CodeBase\K8S-Test\k8s-console-tool
+```
+
+The container images are built with Podman inside WSL and explicitly loaded into minikube's image cache. This test cluster uses Debian nodes; it verifies Kubernetes behavior, not RHEL 10 compatibility.
+
+### 8.1 Build and deploy the looping workload
+
+Build the .NET project and its Linux container image:
+
+```powershell
+dotnet build .\WorkloadTest\WorkloadTest.csproj
+wsl -d Ubuntu -u root -- podman build -t localhost/k8s-test-workload:local -f /mnt/c/CodeBase/K8S-Test/k8s-console-tool/WorkloadTest/Dockerfile /mnt/c/CodeBase/K8S-Test/k8s-console-tool
+wsl -d Ubuntu -u root -- podman save -o /tmp/k8s-test-workload.tar localhost/k8s-test-workload:local
+wsl -d Ubuntu -u root -- minikube image load /tmp/k8s-test-workload.tar -p k8slab
+```
+
+Apply the test Deployment and wait for it to be ready:
+
+```powershell
+kc apply -f .\deploy\test-workload.yaml
+kc rollout status deployment/graceful-workload -n k8sexplorer --timeout=120s
+```
+
+Follow the workload output:
+
+```powershell
+kc logs -f deployment/graceful-workload -n k8sexplorer
+```
+
+Expected repeating pattern, about every 30 seconds:
+
+```text
+Workload started
+START
+Sleeping for 30 seconds
+Done processing
+```
+
+### 8.2 Test graceful pod termination
+
+Get the current pod name:
+
+```powershell
+$testPod = kc get pods -n k8sexplorer -l app=graceful-workload -o jsonpath='{.items[0].metadata.name}'
+$testPod
+```
+
+In a second PowerShell window, define the `kc` helper from Part 1.3, then follow the exact pod's logs (replace `<pod-name>` with the value printed above):
+
+```powershell
+kc logs -f <pod-name> -n k8sexplorer
+```
+
+In the first window, delete that pod to trigger Kubernetes SIGTERM:
+
+```powershell
+kc delete pod $testPod -n k8sexplorer
+```
+
+Expected final lines for the terminating pod:
+
+```text
+Termination signal received: SIGTERM
+Done processing
+Quitting the application
+Done processing (final shutdown entry)
+Workload stopped
+```
+
+There must be no `START` after `Quitting the application`. The Deployment creates a replacement pod; check it with `kc get pods -n k8sexplorer -l app=graceful-workload`.
+
+### 8.3 Build and deploy the patch manager
+
+Build the manager and its container image, then load it into minikube:
+
+```powershell
+dotnet build .\PatchManager\PatchManager.csproj
+wsl -d Ubuntu -u root -- podman build -t localhost/patch-manager:local -f /mnt/c/CodeBase/K8S-Test/k8s-console-tool/PatchManager/Dockerfile /mnt/c/CodeBase/K8S-Test/k8s-console-tool
+wsl -d Ubuntu -u root -- podman save -o /tmp/patch-manager.tar localhost/patch-manager:local
+wsl -d Ubuntu -u root -- minikube image load /tmp/patch-manager.tar -p k8slab
+```
+
+Deploy it. This creates a dedicated ServiceAccount/RBAC and an empty schedule ConfigMap. The default configuration is five-minute polling and dry-run enabled:
+
+```powershell
+kc apply -f .\deploy\patch-manager.yaml
+kc rollout status deployment/patch-manager -n k8sexplorer --timeout=120s
+kc logs deployment/patch-manager -n k8sexplorer
+```
+
+Expected startup includes `DryRun=True` and `Starting patch schedule evaluation`. Keep dry-run enabled for the schedule test below.
+
+### 8.4 Test schedule evaluation without changing a node
+
+Create a patch time 90 minutes from now for a worker node. This is within the two-hour cordon window. After the ConfigMap volume update propagates, the manager reads it on its next poll (normally within five minutes).
+
+```powershell
+$patchAt = [DateTime]::UtcNow.AddMinutes(90).ToString("yyyy-MM-dd'T'HH:mm:ss", [Globalization.CultureInfo]::InvariantCulture)
+$scheduleJson = @{ patches = @(@{ nodeName = 'k8slab-m02'; patchAt = $patchAt; timeZone = 'UTC' }) } | ConvertTo-Json -Depth 4 -Compress
+@"
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: patch-manager-schedule
+  namespace: k8sexplorer
+data:
+  schedule.json: |
+    $scheduleJson
+"@ | kc apply -f -
+```
+
+Follow manager logs until the next schedule evaluation:
+
+```powershell
+kc logs -f deployment/patch-manager -n k8sexplorer
+```
+
+Expected: node `k8slab-m02` is reported Ready, its assigned pods are listed, and the manager logs `Dry run: would cordon node k8slab-m02; no cluster changes made`.
+
+Confirm dry-run did not cordon it:
+
+```powershell
+kc get node k8slab-m02
+```
+
+It should not show `SchedulingDisabled`.
+
+### 8.5 Optional: exercise a real cordon, then undo it
+
+This changes node scheduling state but does **not** evict or drain pods. Use only a worker node, and always complete the undo steps.
+
+Disable dry-run for the manager:
+
+```powershell
+kc set env deployment/patch-manager -n k8sexplorer PATCH_DRY_RUN=false
+kc rollout status deployment/patch-manager -n k8sexplorer --timeout=120s
+```
+
+The schedule above is still within two hours. Wait for the manager's evaluation and check that the node becomes unschedulable:
+
+```powershell
+kc get node k8slab-m02
+```
+
+Undo both the schedule and the cordon. Re-applying the manifest restores the empty schedule and `PATCH_DRY_RUN=true`; the manager deliberately does not auto-uncordon nodes:
+
+```powershell
+kc apply -f .\deploy\patch-manager.yaml
+kc rollout status deployment/patch-manager -n k8sexplorer --timeout=120s
+kc uncordon k8slab-m02
+kc get node k8slab-m02
+```
+
+Confirm the node no longer says `SchedulingDisabled`. Do not test drain or patching through this manager yet; those actions and the third-party readiness handoff are not implemented.
+
+---
+
+## Part 9 — Final cleanup checklist
 
 After testing, confirm the cluster is back to normal:
 
@@ -389,6 +553,16 @@ k8x pods list -n product-catalog                 # 7 pods, all Running
 
 If a node still says `SchedulingDisabled`: `k8x nodes uncordon <node>`.
 If a test taint is left over: `k8x nodes taint <node> <key>-`.
+
+The test workload and patch manager can remain running for further log checks. To remove them and the manager's dedicated RBAC when finished (the namespace is intentionally left in place):
+
+```powershell
+kc delete deployment graceful-workload patch-manager -n k8sexplorer
+kc delete configmap patch-manager-schedule -n k8sexplorer
+kc delete serviceaccount patch-manager -n k8sexplorer
+kc delete clusterrolebinding patch-manager
+kc delete clusterrole patch-manager
+```
 
 ---
 

@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8sexplorer
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: patch-manager
+  namespace: k8sexplorer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: patch-manager
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: patch-manager
+subjects:
+  - kind: ServiceAccount
+    name: patch-manager
+    namespace: k8sexplorer
+roleRef:
+  kind: ClusterRole
+  name: patch-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: patch-manager-schedule
+  namespace: k8sexplorer
+data:
+  schedule.json: |
+    {"patches": []}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patch-manager
+  namespace: k8sexplorer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: patch-manager
+  template:
+    metadata:
+      labels:
+        app: patch-manager
+    spec:
+      serviceAccountName: patch-manager
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: patch-manager
+          image: localhost/patch-manager:local
+          imagePullPolicy: Never
+          env:
+            - name: PATCH_SCHEDULE_PATH
+              value: /etc/patch-manager/schedule.json
+            - name: PATCH_POLL_MINUTES
+              value: "5"
+            - name: PATCH_DRY_RUN
+              value: "true"
+          volumeMounts:
+            - name: schedule
+              mountPath: /etc/patch-manager
+              readOnly: true
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: schedule
+          configMap:
+            name: patch-manager-schedule
