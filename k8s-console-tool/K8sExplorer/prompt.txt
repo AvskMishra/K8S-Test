@@ -1,0 +1,33 @@
+now consider my case  where i will go by my bussiness requirement  for the whole application:
+-------------------------
+there will be a json file containing 
+ node name/server name 
+ date timee and timezone for the patching 
+this patching be applied by third party  nothing has tobe doen here for patching 
+
+now i need a background service  dotnet  10 which will run on every 5 minutes and check this json value,
+from here its should get the node name and time , then it  should check the node status wether it is ready or tainted ,scheduled or nothingor it should haave  scope to run similar kind of command on cluster
+now based on these factor if patching time is within 2 hr then it has to be in a state where no new pods has to scheduled on this node, what ever is there in running state or Work in progress
+let it complete in that 2 hr windows.
+new pods or any new work has to to be landed on othe rservers if this node is going to be patched within 2 hrs according to the jsons.
+
+this background app should call this k8s explorer to apply the changes required ,
+means this console app has to be good enough to get node name ,pod name or some commnads fetch or update command from this background app
+now you add a log feature here for everything you can make a log entry here. also you can modify the k8s explorer to have only required functionality
+along with this consoel app user should have a option to fetech clsuter details like we are doing right now.
+
+Now if the Patch time is about to start , this background task should run drain command om that server so that currently running task should be moved on other node.
+just for  testing case we can have a pod  consitikg a dotnet applciation   which can help use to test some edge case with the movement of these pods gracefully or the shutting down  or closing the pod work gracefully
+  for this app we cna have acase where we are writing some data into a log file with current date and time  then spllep for 30 sec(also include sleep for 30 sec) then done processing . 
+  (start -->sleep 30 sec-->Done)
+  this has to be in infinite loop menas it ahs to write these 3 things continusly on log.
+  then once we get any signal for patching from patch json .
+  then it has to write
+    signal for patching then the time and zone form patch json --> has to be mention in log here
+    if quiting then add quiting the application text in the log file
+     then a last comment in log done processing as mentioned earlier.
+     so after quit message there should be no START message in the log file for that pod or application log
+this may be verify my gracefull shutdown or gracefull migration of pods from one node to another.
+
+So bascially i need a minial apllication which should constantly monitor patch json and based on node state and patch time it should apply the requireed command for gracefully migration of pods or gracefull shutdown of pods then impacted server should have only system pods at the time of patching. so that our any work will not lodt here.
+ can you make a requirement .md file out of this first  by going to these requiremwnt then we will move forward with development . 
